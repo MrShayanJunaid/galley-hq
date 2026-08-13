@@ -12,13 +12,13 @@ export const Route = createFileRoute("/reset-password")({
   ssr: false,
   head: () => ({
     meta: [
-      { title: "Set a new password — Cadence" },
+      { title: "Set a new password — GalleyHQ" },
       {
         name: "description",
-        content: "Choose a new password for your Cadence agency workspace account.",
+        content: "Choose a new password for your GalleyHQ agency workspace account.",
       },
-      { property: "og:title", content: "Set a new password — Cadence" },
-      { property: "og:description", content: "Choose a new Cadence account password." },
+      { property: "og:title", content: "Set a new password — GalleyHQ" },
+      { property: "og:description", content: "Choose a new GalleyHQ account password." },
     ],
   }),
   component: ResetPasswordPage,

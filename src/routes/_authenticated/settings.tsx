@@ -16,10 +16,10 @@ import { updateProfile, workspaceKeys } from "@/lib/api/workspace";
 export const Route = createFileRoute("/_authenticated/settings")({
   head: () => ({
     meta: [
-      { title: "Settings — Cadence" },
-      { name: "description", content: "Update your Cadence profile, email and password." },
-      { property: "og:title", content: "Settings — Cadence" },
-      { property: "og:description", content: "Manage your Cadence account settings." },
+      { title: "Settings — GalleyHQ" },
+      { name: "description", content: "Update your GalleyHQ profile, email and password." },
+      { property: "og:title", content: "Settings — GalleyHQ" },
+      { property: "og:description", content: "Manage your GalleyHQ account settings." },
     ],
   }),
   component: SettingsPage,

@@ -7,13 +7,13 @@ import { useSession } from "@/hooks/use-session";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Cadence — Social content workflow for marketing agencies" },
+      { title: "GalleyHQ — Social content workflow for marketing agencies" },
       {
         name: "description",
         content:
-          "Cadence gives marketing agencies one workspace for brand intelligence, content ideas, creatives, captions, approvals and publishing.",
+          "GalleyHQ gives marketing agencies one workspace for brand intelligence, content ideas, creatives, captions, approvals and publishing.",
       },
-      { property: "og:title", content: "Cadence — Social content workflow for agencies" },
+      { property: "og:title", content: "GalleyHQ — Social content workflow for agencies" },
       {
         property: "og:description",
         content: "One workspace for your agency's entire social content workflow.",
@@ -35,7 +35,7 @@ function LandingPage() {
   return (
     <div className="min-h-screen">
       <header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
-        <span className="text-display text-lg font-semibold">Cadence</span>
+        <span className="text-display text-lg font-semibold">GalleyHQ</span>
         <nav className="flex items-center gap-2">
           {isAuthenticated ? (
             <Button asChild>

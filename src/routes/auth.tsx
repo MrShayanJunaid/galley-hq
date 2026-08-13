@@ -14,14 +14,14 @@ import { supabase } from "@/integrations/supabase/client";
 export const Route = createFileRoute("/auth")({
   head: () => ({
     meta: [
-      { title: "Sign in — Cadence" },
+      { title: "Sign in — GalleyHQ" },
       {
         name: "description",
         content:
-          "Sign in or create your Cadence account to manage your agency's social content workflow.",
+          "Sign in or create your GalleyHQ account to manage your agency's social content workflow.",
       },
-      { property: "og:title", content: "Sign in — Cadence" },
-      { property: "og:description", content: "Access your Cadence agency workspace." },
+      { property: "og:title", content: "Sign in — GalleyHQ" },
+      { property: "og:description", content: "Access your GalleyHQ agency workspace." },
     ],
   }),
   component: AuthPage,
@@ -41,7 +41,7 @@ function AuthPage() {
     <div className="flex min-h-screen">
       <div className="hidden w-1/2 flex-col justify-between bg-sidebar p-12 lg:flex">
         <span className="text-display text-lg font-semibold text-sidebar-accent-foreground">
-          Cadence
+          GalleyHQ
         </span>
         <div>
           <h2 className="text-display max-w-md text-3xl font-semibold text-sidebar-accent-foreground">
@@ -73,7 +73,14 @@ function AuthPage() {
               <SignUpForm />
             </TabsContent>
           </Tabs>
+          <p className="mt-6 text-center text-xs text-muted-foreground">
+            Trouble signing in? Email{" "}
+            <a href="mailto:support@galleyhq.com" className="underline underline-offset-4">
+              support@galleyhq.com
+            </a>
+          </p>
         </div>
+
       </div>
     </div>
   );

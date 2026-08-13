@@ -55,7 +55,7 @@ export function AppSidebar({
           <Sparkles className="size-4" />
         </span>
         <span className="text-display text-base font-semibold text-sidebar-accent-foreground">
-          Cadence
+          GalleyHQ
         </span>
       </div>
 

@@ -79,13 +79,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Cadence — Social content workflow for marketing agencies" },
+      { title: "GalleyHQ — Social content workflow for marketing agencies" },
       {
         name: "description",
         content:
-          "Cadence gives marketing agencies one workspace for brand intelligence, content ideas, creatives, captions, approvals and publishing.",
+          "GalleyHQ gives marketing agencies one workspace for brand intelligence, content ideas, creatives, captions, approvals and publishing.",
       },
-      { property: "og:title", content: "Cadence" },
+      { property: "og:title", content: "GalleyHQ" },
       {
         property: "og:description",
         content: "One workspace for your agency's entire social content workflow.",

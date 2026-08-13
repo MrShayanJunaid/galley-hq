@@ -11,13 +11,13 @@ import { supabase } from "@/integrations/supabase/client";
 export const Route = createFileRoute("/forgot-password")({
   head: () => ({
     meta: [
-      { title: "Reset your password — Cadence" },
+      { title: "Reset your password — GalleyHQ" },
       {
         name: "description",
-        content: "Request a password reset link for your Cadence agency workspace account.",
+        content: "Request a password reset link for your GalleyHQ agency workspace account.",
       },
-      { property: "og:title", content: "Reset your password — Cadence" },
-      { property: "og:description", content: "Request a Cadence password reset link." },
+      { property: "og:title", content: "Reset your password — GalleyHQ" },
+      { property: "og:description", content: "Request a GalleyHQ password reset link." },
     ],
   }),
   component: ForgotPasswordPage,
@@ -74,14 +74,24 @@ function ForgotPasswordPage() {
             </form>
           </CardContent>
         ) : null}
-        <CardContent className="pt-0">
+        <CardContent className="space-y-3 pt-0">
           <Link
             to="/auth"
             className="text-sm text-muted-foreground underline-offset-4 hover:underline"
           >
             Back to login
           </Link>
+          <p className="text-xs text-muted-foreground">
+            Need help? Email{" "}
+            <a
+              href="mailto:support@galleyhq.com"
+              className="underline underline-offset-4"
+            >
+              support@galleyhq.com
+            </a>
+          </p>
         </CardContent>
+
       </Card>
     </div>
   );
