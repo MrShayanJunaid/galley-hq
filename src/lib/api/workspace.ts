@@ -17,8 +17,15 @@ export type WorkspaceContext = {
 };
 
 /** Creates the profile, workspace, owner membership and Free subscription if missing. */
-async function bootstrapUser(): Promise<void> {
-  const { error } = await supabase.rpc("bootstrap_user", {});
+async function bootstrapUser(metadata: Record<string, unknown> | undefined): Promise<void> {
+  const fullName = typeof metadata?.["full_name"] === "string" ? metadata["full_name"] : undefined;
+  const workspaceName =
+    typeof metadata?.["workspace_name"] === "string" ? metadata["workspace_name"] : undefined;
+
+  const { error } = await supabase.rpc("bootstrap_user", {
+    ...(fullName ? { _full_name: fullName } : {}),
+    ...(workspaceName ? { _workspace_name: workspaceName } : {}),
+  });
   if (error) throw error;
 }
 
@@ -33,7 +40,7 @@ export async function fetchWorkspaceContext(): Promise<WorkspaceContext | null> 
 
   let membership = await fetchPrimaryMembership(userId);
   if (!membership) {
-    await bootstrapUser();
+    await bootstrapUser(userData.user.user_metadata);
     membership = await fetchPrimaryMembership(userId);
   }
   if (!membership || !membership.workspace) return null;
