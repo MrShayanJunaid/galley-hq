@@ -47,7 +47,7 @@ export async function fetchWorkspaceContext(): Promise<WorkspaceContext | null> 
       .maybeSingle(),
     supabase
       .from("workspace_members")
-      .select("id", { count: "exact", head: true })
+      .select("id")
       .eq("workspace_id", membership.workspace_id),
   ]);
 
@@ -60,7 +60,7 @@ export async function fetchWorkspaceContext(): Promise<WorkspaceContext | null> 
     role: membership.role,
     profile: profileResult.data,
     subscription: subscriptionResult.data as WorkspaceContext["subscription"],
-    memberCount: memberCountResult.count ?? 0,
+    memberCount: memberCountResult.data?.length ?? 0,
   };
 }
 
