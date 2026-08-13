@@ -9,13 +9,13 @@ import { useWorkspaceContext } from "@/hooks/use-workspace";
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
     meta: [
-      { title: "Dashboard — Cadence" },
+      { title: "Dashboard — GalleyHQ" },
       {
         name: "description",
         content: "Your agency workspace overview: plan, team and upcoming content modules.",
       },
-      { property: "og:title", content: "Dashboard — Cadence" },
-      { property: "og:description", content: "Your agency workspace overview in Cadence." },
+      { property: "og:title", content: "Dashboard — GalleyHQ" },
+      { property: "og:description", content: "Your agency workspace overview in GalleyHQ." },
     ],
   }),
   component: DashboardPage,

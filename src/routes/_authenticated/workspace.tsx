@@ -23,13 +23,13 @@ import { updateWorkspaceName, workspaceKeys } from "@/lib/api/workspace";
 export const Route = createFileRoute("/_authenticated/workspace")({
   head: () => ({
     meta: [
-      { title: "Workspace — Cadence" },
+      { title: "Workspace — GalleyHQ" },
       {
         name: "description",
         content: "Manage your agency workspace details, team members and current plan.",
       },
-      { property: "og:title", content: "Workspace — Cadence" },
-      { property: "og:description", content: "Manage your Cadence workspace and team." },
+      { property: "og:title", content: "Workspace — GalleyHQ" },
+      { property: "og:description", content: "Manage your GalleyHQ workspace and team." },
     ],
   }),
   component: WorkspacePage,
