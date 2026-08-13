@@ -18,10 +18,7 @@ export type WorkspaceContext = {
 
 /** Creates the profile, workspace, owner membership and Free subscription if missing. */
 async function bootstrapUser(): Promise<void> {
-  const { error } = await supabase.rpc("bootstrap_user", {
-    _full_name: null,
-    _workspace_name: null,
-  });
+  const { error } = await supabase.rpc("bootstrap_user", {});
   if (error) throw error;
 }
 
@@ -87,12 +84,24 @@ export async function fetchWorkspaceMembers(
 ): Promise<WorkspaceMemberWithProfile[]> {
   const { data, error } = await supabase
     .from("workspace_members")
-    .select("*, profile:profiles(*)")
+    .select("*")
     .eq("workspace_id", workspaceId)
     .order("created_at", { ascending: true });
 
   if (error) throw error;
-  return (data ?? []) as WorkspaceMemberWithProfile[];
+  const members = data ?? [];
+  if (members.length === 0) return [];
+
+  // profiles are readable only for the current user (RLS), so join client-side.
+  const { data: profiles, error: profilesError } = await supabase
+    .from("profiles")
+    .select("*")
+    .in("id", members.map((member) => member.user_id));
+
+  if (profilesError) throw profilesError;
+  const byId = new Map((profiles ?? []).map((profile) => [profile.id, profile]));
+
+  return members.map((member) => ({ ...member, profile: byId.get(member.user_id) ?? null }));
 }
 
 export async function fetchPlans(): Promise<Plan[]> {
