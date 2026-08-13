@@ -73,7 +73,14 @@ function AuthPage() {
               <SignUpForm />
             </TabsContent>
           </Tabs>
+          <p className="mt-6 text-center text-xs text-muted-foreground">
+            Trouble signing in? Email{" "}
+            <a href="mailto:support@galleyhq.com" className="underline underline-offset-4">
+              support@galleyhq.com
+            </a>
+          </p>
         </div>
+
       </div>
     </div>
   );

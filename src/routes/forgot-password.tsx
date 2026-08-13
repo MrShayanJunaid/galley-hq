@@ -74,14 +74,24 @@ function ForgotPasswordPage() {
             </form>
           </CardContent>
         ) : null}
-        <CardContent className="pt-0">
+        <CardContent className="space-y-3 pt-0">
           <Link
             to="/auth"
             className="text-sm text-muted-foreground underline-offset-4 hover:underline"
           >
             Back to login
           </Link>
+          <p className="text-xs text-muted-foreground">
+            Need help? Email{" "}
+            <a
+              href="mailto:support@galleyhq.com"
+              className="underline underline-offset-4"
+            >
+              support@galleyhq.com
+            </a>
+          </p>
         </CardContent>
+
       </Card>
     </div>
   );
