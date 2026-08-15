@@ -24,16 +24,17 @@ type NavItem = {
 
 const primaryNav: NavItem[] = [
   { label: "Dashboard", to: "/dashboard", icon: LayoutDashboard },
+  { label: "Clients", to: "/clients", icon: Users },
   { label: "Workspace", to: "/workspace", icon: Building2 },
   { label: "Settings", to: "/settings", icon: Settings },
 ];
 
 const upcomingNav: NavItem[] = [
-  { label: "Clients", to: "/dashboard", icon: Users, soon: true },
   { label: "Ideas", to: "/dashboard", icon: Sparkles, soon: true },
   { label: "Creatives", to: "/dashboard", icon: Images, soon: true },
   { label: "Calendar", to: "/dashboard", icon: Calendar, soon: true },
 ];
+
 
 type AppSidebarProps = {
   workspaceName: string;
