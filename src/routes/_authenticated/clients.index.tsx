@@ -5,8 +5,8 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { ClientFormDialog } from "@/components/clients/ClientFormDialog";
+import { StatusBadge, formatDate } from "@/components/clients/client-display";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -40,22 +40,6 @@ export const Route = createFileRoute("/_authenticated/clients/")({
   }),
   component: ClientsPage,
 });
-
-export function formatDate(value: string) {
-  return new Date(value).toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
-}
-
-export function StatusBadge({ status }: { status: string }) {
-  return (
-    <Badge variant={status === "active" ? "secondary" : "outline"} className="capitalize">
-      {status}
-    </Badge>
-  );
-}
 
 function ClientsPage() {
   const queryClient = useQueryClient();
