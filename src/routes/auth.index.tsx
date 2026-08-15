@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useSession } from "@/hooks/use-session";
 import { lovable } from "@/integrations/lovable";
 import { supabase } from "@/integrations/supabase/client";
+import { EMAIL_CONFIRM_PATH, authAppOrigin, authRedirectUrl } from "@/lib/auth-urls";
 
 export const Route = createFileRoute("/auth/")({
   head: () => ({
@@ -92,7 +93,7 @@ function GoogleButton({ label }: { label: string }) {
   async function handleClick() {
     setIsPending(true);
     const result = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: window.location.origin,
+      redirect_uri: authAppOrigin(),
     });
 
     if (result.error) {
@@ -204,7 +205,7 @@ function SignUpForm() {
       email,
       password,
       options: {
-        emailRedirectTo: window.location.origin,
+        emailRedirectTo: authRedirectUrl(EMAIL_CONFIRM_PATH),
         data: { full_name: fullName, workspace_name: workspaceName },
       },
     });
