@@ -22,7 +22,7 @@ import { useClients } from "@/hooks/use-clients";
 import { useWorkspaceContext } from "@/hooks/use-workspace";
 import { clientKeys, createClient, type ClientInput } from "@/lib/api/clients";
 
-export const Route = createFileRoute("/_authenticated/clients")({
+export const Route = createFileRoute("/_authenticated/clients/")({
   head: () => ({
     meta: [
       { title: "Clients — GalleyHQ" },
