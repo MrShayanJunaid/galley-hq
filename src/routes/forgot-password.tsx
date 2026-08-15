@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
+import { PASSWORD_RESET_PATH, authRedirectUrl } from "@/lib/auth-urls";
 
 export const Route = createFileRoute("/forgot-password")({
   head: () => ({
@@ -32,7 +33,7 @@ function ForgotPasswordPage() {
     event.preventDefault();
     setIsPending(true);
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
+      redirectTo: authRedirectUrl(PASSWORD_RESET_PATH),
     });
     setIsPending(false);
 
