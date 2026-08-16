@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { CheckCircle2, KeyRound } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
