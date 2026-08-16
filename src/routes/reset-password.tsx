@@ -148,12 +148,18 @@ function ResetPasswordPage() {
             Password updated successfully
           </CardTitle>
           <CardDescription>
-            Your password has been changed. You can now sign in to GalleyHQ.
+            {hasSession
+              ? "Your password has been changed. Taking you to your GalleyHQ dashboard…"
+              : "Your password has been changed. You can now sign in to GalleyHQ."}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Button asChild className="w-full">
-            <Link to="/login">Continue to GalleyHQ</Link>
+            {hasSession ? (
+              <Link to="/dashboard">Continue to dashboard</Link>
+            ) : (
+              <Link to="/auth">Continue to sign in</Link>
+            )}
           </Button>
         </CardContent>
       </Shell>
