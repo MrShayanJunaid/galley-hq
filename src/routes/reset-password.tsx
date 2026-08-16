@@ -135,12 +135,17 @@ function ResetPasswordPage() {
     }
     setIsPending(true);
     const { error } = await supabase.auth.updateUser({ password });
-    setIsPending(false);
 
     if (error) {
+      setIsPending(false);
       toast.error(error.message || "We couldn't update your password. Please try again.");
       return;
     }
+
+    // The recovery link signs the user in, so send them straight to the app.
+    const { data } = await supabase.auth.getSession();
+    setHasSession(Boolean(data.session));
+    setIsPending(false);
     setDone(true);
   }
 
