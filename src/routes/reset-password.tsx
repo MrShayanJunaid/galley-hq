@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { CheckCircle2, KeyRound } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -32,11 +32,21 @@ type LinkState =
   | { status: "invalid"; title: string; message: string };
 
 function ResetPasswordPage() {
+  const navigate = useNavigate();
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [isPending, setIsPending] = useState(false);
   const [done, setDone] = useState(false);
+  const [hasSession, setHasSession] = useState(false);
   const [linkState, setLinkState] = useState<LinkState>({ status: "checking" });
+
+  useEffect(() => {
+    if (!done || !hasSession) return;
+    const timer = window.setTimeout(() => {
+      void navigate({ to: "/dashboard" });
+    }, 1800);
+    return () => window.clearTimeout(timer);
+  }, [done, hasSession, navigate]);
 
   useEffect(() => {
     let active = true;
@@ -125,12 +135,17 @@ function ResetPasswordPage() {
     }
     setIsPending(true);
     const { error } = await supabase.auth.updateUser({ password });
-    setIsPending(false);
 
     if (error) {
+      setIsPending(false);
       toast.error(error.message || "We couldn't update your password. Please try again.");
       return;
     }
+
+    // The recovery link signs the user in, so send them straight to the app.
+    const { data } = await supabase.auth.getSession();
+    setHasSession(Boolean(data.session));
+    setIsPending(false);
     setDone(true);
   }
 
@@ -148,12 +163,18 @@ function ResetPasswordPage() {
             Password updated successfully
           </CardTitle>
           <CardDescription>
-            Your password has been changed. You can now sign in to GalleyHQ.
+            {hasSession
+              ? "Your password has been changed. Taking you to your GalleyHQ dashboard…"
+              : "Your password has been changed. You can now sign in to GalleyHQ."}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Button asChild className="w-full">
-            <Link to="/login">Continue to GalleyHQ</Link>
+            {hasSession ? (
+              <Link to="/dashboard">Continue to dashboard</Link>
+            ) : (
+              <Link to="/auth">Continue to sign in</Link>
+            )}
           </Button>
         </CardContent>
       </Shell>
