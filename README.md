@@ -1,202 +1,151 @@
-# Galley HQ
+# GalleyHQ
 
-We are building a SaaS product for marketing agencies.
+GalleyHQ is a SaaS platform designed for marketing agencies to streamline their social media content workflow in one place.
 
-The product will eventually help agencies manage the full social content workflow in one place: understand a client's brand, generate content ideas, generate creatives, create captions, review content, get client approval, and prepare/publish content across multiple social platforms.
+The platform is being developed in phases, with the initial MVP focused on establishing a secure, scalable SaaS foundation that can support future content management, AI-assisted workflows, client collaboration, approvals, and multi-platform publishing.
 
-However, DO NOT build those features yet.
+## Current Development Scope
 
-For this step, only build the core production-quality foundation of the SaaS.
+The current phase focuses on the core application foundation:
 
-1. Project foundation
+* User authentication
+* Email/password authentication
+* Google OAuth
+* Protected application routes
+* Workspace-based architecture
+* Workspace membership
+* Subscription and plan structure
+* PostgreSQL database
+* Row Level Security (RLS)
+* Account and workspace management
+* Core application dashboard
 
-Inspect the current project first.
+Advanced product functionality will be introduced progressively in later development phases.
 
-If this is a new project, establish a clean, scalable architecture suitable for a SaaS product.
+## Technology Stack
 
-Keep the code modular so future features can be added without rewriting the foundation.
+* **Frontend:** React / TypeScript
+* **Backend:** Supabase
+* **Database:** PostgreSQL
+* **Authentication:** Supabase Auth
+* **Security:** Row Level Security (RLS)
+* **Storage:** Supabase Storage
+* **Deployment:** Production web environment
 
-Do not over-engineer the MVP.
+## Architecture
 
-Use clean naming conventions and reusable components.
+GalleyHQ is structured as a multi-tenant SaaS application.
 
-2. Supabase
+The core relationship is:
 
-Use Supabase as the backend:
-
-Supabase Authentication
-
-PostgreSQL database
-
-Row Level Security (RLS)
-
-Supabase Storage only where required
-
-Do not hardcode credentials or secrets.
-Use environment variables.
-
-3. Authentication
-
-Build:
-
-Sign up
-
-Login
-
-Logout
-
-Forgot/reset password
-
-Protected application routes
-
-Persistent authenticated sessions
-
-After login, the user should enter the application dashboard.
-
-Do not build social-media authentication yet.
-
-4. SaaS user structure
-
-The database must NOT be designed as a single-user prototype.
-
-Create a proper SaaS-ready structure where a user belongs to an account/workspace.
-
-The architecture should support:
-
+```text
 User
-→ Workspace
-→ Workspace members
-→ Subscription/Plan
-→ Future clients
-→ Future content/projects
+  ↓
+Workspace
+  ↓
+Workspace Members
+  ↓
+Plans & Subscriptions
+  ↓
+Future Clients / Projects / Content
+```
 
-A user should be able to belong to a workspace, and the data must be isolated between workspaces.
+Workspace-level data is isolated through database-level security policies.
 
-5. Plans and subscriptions
+The architecture is designed so additional product functionality can be introduced without restructuring the core authentication and database systems.
 
-Create the database structure needed to support plans such as:
+## Authentication
 
-Free
+The application supports:
 
-Pro
+* Email/password signup
+* Email/password login
+* Email verification
+* Password recovery
+* Google OAuth
+* Persistent authentication sessions
+* Protected application routes
+* Secure logout
 
-Agency
+Authentication credentials and service secrets are managed through environment variables and are never committed to the repository.
 
-Do NOT integrate Stripe yet.
+## Database
 
-However, the database should already support:
+The initial database foundation includes:
 
-plan
+* `profiles`
+* `workspaces`
+* `workspace_members`
+* `plans`
+* `subscriptions`
 
-subscription status
+The database uses:
 
-subscription start/end dates
+* UUID primary keys
+* Foreign-key relationships
+* Timestamps
+* Unique constraints
+* Appropriate indexes
+* Row Level Security policies
 
-billing provider
+The subscription architecture is designed to support multiple plans and future payment providers without requiring a fundamental database redesign.
 
-external customer ID
+## Security
 
-external subscription ID
+Security is enforced at the database level wherever possible.
 
-This should allow Stripe or another payment provider to be connected later without redesigning the database.
+Users must only be able to access data belonging to workspaces they are authorized to access.
 
-6. Database security
+Client-side checks are not treated as the primary security mechanism for protecting private workspace data.
 
-Implement proper RLS policies.
+Sensitive credentials, API keys, and service-role credentials must remain server-side and must never be committed to the repository.
 
-Users must NEVER be able to access another workspace's private data by changing an ID in the URL or request.
+## Development Principles
 
-All workspace-level data must be protected by workspace membership.
+The project follows these principles:
 
-Do not use insecure client-side checks as the primary security mechanism.
+1. **Build in phases**
+   Features are introduced incrementally rather than building the entire product at once.
 
-7. Initial database entities
+2. **Keep the MVP focused**
+   Only functionality required for the current phase should be implemented.
 
-Create only the foundation tables required at this stage, such as:
+3. **Maintain a reliable foundation**
+   Authentication, database structure, permissions, and security should be implemented correctly from the beginning.
 
-profiles
+4. **Avoid premature complexity**
+   Enterprise-level infrastructure and unnecessary scaling systems should not be introduced before they are required.
 
-workspaces
+5. **Keep the architecture extensible**
+   Future modules should be able to integrate with the existing foundation without major rewrites.
 
-workspace_members
+## Local Development
 
-plans
+### Requirements
 
-subscriptions
+* Node.js
+* npm
 
-Use proper:
+### Setup
 
-UUID primary keys
-
-foreign keys
-
-timestamps
-
-created_at / updated_at
-
-appropriate indexes
-
-unique constraints where necessary
-
-Do not create unnecessary tables for future features yet.
-
-8. Dashboard shell
-
-After authentication, create a clean SaaS dashboard shell with:
-
-Sidebar
-
-Dashboard
-
-Workspace/account area
-
-Settings
-
-Logout
-
-For now, the dashboard can contain placeholder sections for future modules, but DO NOT implement the actual content-generation workflow yet.
-
-9. Important architecture rule
-
-This is an MVP, but NOT a throwaway prototype.
-
-The MVP should be simple in scope while the underlying authentication, database, permissions, and data structure should be reliable enough to build the next phases on top of.
-
-Do not build unnecessary enterprise infrastructure or premature scaling systems.
-
-10. Before coding
-
-First inspect the existing project and briefly explain:
-
-Current structure
-
-What you will change
-
-Database schema you propose
-
-Authentication approach
-
-Then implement ONLY this Step 1.
-
-Do not move to content generation, AI, image generation, social media APIs, approvals, analytics, white-labeling, or other product features until this foundation is complete and verified.
-
-This project was built with [Lovable](https://lovable.dev).
-
-## Build with Lovable
-
-Continue developing this project in the [Lovable editor](https://lovable.dev/projects/ca1a6671-8da3-4cf9-8e00-e53e6b95cc73).
-
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: every change made in Lovable is committed straight to this repository.
-- **Full ownership**: this code is yours. Push to `main` on GitHub and your changes sync back into Lovable, ready for your next prompt.
-
-## Development
-
-Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
-
-```sh
-git clone <this-repository-url>
+```bash
+git clone <repository-url>
 cd <repository-name>
-npm i
+npm install
+```
+
+Create the required environment variables in `.env.local` and configure the Supabase project.
+
+Then start the development server:
+
+```bash
 npm run dev
 ```
+
+The application will be available at the local development URL provided by the development server.
+
+## Project Status
+
+**Current phase:** MVP Foundation
+
+The foundation is being developed first. Product-specific modules will be added progressively as their respective development phases begin.
