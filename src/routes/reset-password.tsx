@@ -32,11 +32,21 @@ type LinkState =
   | { status: "invalid"; title: string; message: string };
 
 function ResetPasswordPage() {
+  const navigate = useNavigate();
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [isPending, setIsPending] = useState(false);
   const [done, setDone] = useState(false);
+  const [hasSession, setHasSession] = useState(false);
   const [linkState, setLinkState] = useState<LinkState>({ status: "checking" });
+
+  useEffect(() => {
+    if (!done || !hasSession) return;
+    const timer = window.setTimeout(() => {
+      void navigate({ to: "/dashboard" });
+    }, 1800);
+    return () => window.clearTimeout(timer);
+  }, [done, hasSession, navigate]);
 
   useEffect(() => {
     let active = true;
