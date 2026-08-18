@@ -256,3 +256,68 @@ export const listAdminSubscriptions = createServerFn({ method: "GET" })
       createdAt: sub.created_at,
     }));
   });
+
+export type AdminClientRow = {
+  id: string;
+  name: string;
+  companyName: string;
+  email: string | null;
+  website: string | null;
+  status: string;
+  createdAt: string;
+  workspaceId: string;
+  workspaceName: string;
+  workspaceSlug: string;
+  brand: {
+    industry: string | null;
+    websiteUrl: string | null;
+    description: string | null;
+    targetAudience: string | null;
+    brandPositioning: string | null;
+    brandVoice: string | null;
+  } | null;
+};
+
+/** Read-only, platform-wide client visibility. Admin role is verified from the caller's session. */
+export const listAdminClients = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<AdminClientRow[]> => {
+    await assertAdmin(context.supabase);
+    const db = await adminDb();
+
+    const [clients, workspaces, profiles] = await Promise.all([
+      db.from("clients").select("*").order("created_at", { ascending: false }),
+      db.from("workspaces").select("id,name,slug"),
+      db.from("client_brand_profiles").select("*"),
+    ]);
+
+    const workspaceById = new Map((workspaces.data ?? []).map((w) => [w.id, w]));
+    const brandByClient = new Map((profiles.data ?? []).map((p) => [p.client_id, p]));
+
+    return (clients.data ?? []).map((client) => {
+      const workspace = workspaceById.get(client.workspace_id);
+      const brand = brandByClient.get(client.id);
+      return {
+        id: client.id,
+        name: client.name,
+        companyName: client.company_name,
+        email: client.email,
+        website: client.website,
+        status: client.status,
+        createdAt: client.created_at,
+        workspaceId: client.workspace_id,
+        workspaceName: workspace?.name ?? "Unknown",
+        workspaceSlug: workspace?.slug ?? "—",
+        brand: brand
+          ? {
+              industry: brand.industry,
+              websiteUrl: brand.website_url,
+              description: brand.description,
+              targetAudience: brand.target_audience,
+              brandPositioning: brand.brand_positioning,
+              brandVoice: brand.brand_voice,
+            }
+          : null,
+      };
+    });
+  });
