@@ -2,6 +2,8 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   AlertCircle,
+  Archive,
+  ArchiveRestore,
   ArrowLeft,
   Building2,
   Images,
@@ -13,6 +15,7 @@ import {
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { BrandProfileForm } from "@/components/clients/BrandProfileForm";
 import { ClientFormDialog } from "@/components/clients/ClientFormDialog";
 import { StatusBadge, formatDate } from "@/components/clients/client-display";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
@@ -32,7 +35,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Skeleton } from "@/components/ui/skeleton";
 import { useClient } from "@/hooks/use-clients";
 import { useWorkspaceContext } from "@/hooks/use-workspace";
-import { clientKeys, deleteClient, updateClient, type ClientInput } from "@/lib/api/clients";
+import {
+  clientKeys,
+  deleteClient,
+  setClientStatus,
+  updateClient,
+  type ClientInput,
+} from "@/lib/api/clients";
 
 export const Route = createFileRoute("/_authenticated/clients/$clientId")({
   head: () => ({
@@ -98,6 +107,18 @@ function ClientDetailPage() {
     onError: (mutationError: Error) => toast.error(mutationError.message),
   });
 
+  const archiveMutation = useMutation({
+    mutationFn: (status: string) => setClientStatus(clientId, status),
+    onSuccess: (updated) => {
+      toast.success(updated.status === "archived" ? "Client archived" : "Client restored");
+      queryClient.setQueryData(clientKeys.detail(clientId), updated);
+      if (workspaceId) {
+        void queryClient.invalidateQueries({ queryKey: clientKeys.list(workspaceId) });
+      }
+    },
+    onError: (mutationError: Error) => toast.error(mutationError.message),
+  });
+
   const deleteMutation = useMutation({
     mutationFn: () => deleteClient(clientId),
     onSuccess: () => {
@@ -121,6 +142,20 @@ function ClientDetailPage() {
             <Button variant="outline" onClick={() => setIsFormOpen(true)}>
               <Pencil className="size-4" />
               Edit client
+            </Button>
+            <Button
+              variant="outline"
+              disabled={archiveMutation.isPending}
+              onClick={() =>
+                archiveMutation.mutate(client.status === "archived" ? "active" : "archived")
+              }
+            >
+              {client.status === "archived" ? (
+                <ArchiveRestore className="size-4" />
+              ) : (
+                <Archive className="size-4" />
+              )}
+              {client.status === "archived" ? "Restore client" : "Archive client"}
             </Button>
             <Button variant="destructive" onClick={() => setIsDeleteOpen(true)}>
               <Trash2 className="size-4" />
@@ -199,6 +234,16 @@ function ClientDetailPage() {
               </div>
             </CardContent>
           </Card>
+
+          <div className="mt-6">
+            <BrandProfileForm
+              clientId={client.id}
+              workspaceId={workspaceId}
+              clientName={client.company_name}
+              clientWebsite={client.website}
+              disabled={client.status === "archived"}
+            />
+          </div>
 
           <section className="mt-10">
             <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
