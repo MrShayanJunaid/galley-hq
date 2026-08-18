@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import {
   Building2,
+  ShieldCheck,
   Calendar,
   Images,
   LayoutDashboard,
@@ -13,6 +14,7 @@ import type { LucideIcon } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useAdminAccess } from "@/hooks/use-admin";
 import { cn } from "@/lib/utils";
 
 type NavItem = {
@@ -49,6 +51,8 @@ export function AppSidebar({
   onSignOut,
   isSigningOut,
 }: AppSidebarProps) {
+  const { data: adminAccess } = useAdminAccess();
+
   return (
     <aside className="flex w-64 shrink-0 flex-col bg-sidebar text-sidebar-foreground">
       <div className="flex items-center gap-2 px-5 py-6">
@@ -71,6 +75,9 @@ export function AppSidebar({
         {primaryNav.map((item) => (
           <SidebarLink key={item.label} item={item} />
         ))}
+        {adminAccess?.isAdmin ? (
+          <SidebarLink item={{ label: "Admin", to: "/admin", icon: ShieldCheck }} />
+        ) : null}
 
         <p className="px-3 pt-6 pb-2 text-[11px] font-semibold uppercase tracking-wider text-sidebar-foreground/50">
           Coming next
