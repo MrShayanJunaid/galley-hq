@@ -8,14 +8,13 @@ import {
   Building2,
   Images,
   Pencil,
-  Sparkles,
   Trash2,
   Users,
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
-import { BrandProfileForm } from "@/components/clients/BrandProfileForm";
+import { BrandSummaryCard } from "@/components/brand/BrandSummaryCard";
 import { ClientFormDialog } from "@/components/clients/ClientFormDialog";
 import { StatusBadge, formatDate } from "@/components/clients/client-display";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
@@ -64,11 +63,6 @@ export const Route = createFileRoute("/_authenticated/clients/$clientId")({
 });
 
 const futureModules = [
-  {
-    title: "Brand intelligence",
-    description: "Tone of voice, audience and visual identity for this client.",
-    icon: Sparkles,
-  },
   {
     title: "Ideas & captions",
     description: "On-brand content ideas and captions.",
@@ -238,12 +232,10 @@ function ClientDetailPage() {
           </Card>
 
           <div className="mt-6">
-            <BrandProfileForm
+            <BrandSummaryCard
               clientId={client.id}
-              workspaceId={workspaceId}
               clientName={client.company_name}
               clientWebsite={client.website}
-              disabled={client.status === "archived"}
             />
           </div>
 

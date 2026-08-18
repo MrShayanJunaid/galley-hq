@@ -14,61 +14,181 @@ export type Database = {
   }
   public: {
     Tables: {
+      brand_analysis_runs: {
+        Row: {
+          client_id: string
+          created_at: string
+          created_by: string | null
+          duration_ms: number | null
+          error_message: string | null
+          extracted: Json | null
+          id: string
+          pages: Json
+          status: string
+          updated_at: string
+          website_url: string
+          workspace_id: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          created_by?: string | null
+          duration_ms?: number | null
+          error_message?: string | null
+          extracted?: Json | null
+          id?: string
+          pages?: Json
+          status?: string
+          updated_at?: string
+          website_url: string
+          workspace_id: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          created_by?: string | null
+          duration_ms?: number | null
+          error_message?: string | null
+          extracted?: Json | null
+          id?: string
+          pages?: Json
+          status?: string
+          updated_at?: string
+          website_url?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_analysis_runs_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brand_analysis_runs_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_brand_profiles: {
         Row: {
+          ai_suggestions: Json
+          ai_suggestions_at: string | null
           brand_name: string | null
           brand_notes: string | null
           brand_positioning: string | null
           brand_voice: string | null
           client_id: string
+          completed_at: string | null
+          content_formats: string | null
+          content_goals: string | null
+          content_instructions: string | null
+          content_topics: string | null
           created_at: string
           created_by: string | null
+          cta_preferences: string | null
+          customer_problems: string | null
           description: string | null
+          desired_perception: string | null
           extras: Json
+          field_sources: Json
           id: string
           industry: string | null
+          key_differentiators: string | null
           key_offerings: string | null
+          onboarding_status: string
+          products_services: string | null
           target_audience: string | null
           tone_preferences: string | null
           updated_at: string
+          usp: string | null
+          voice_config: Json
+          website_analysis: Json | null
+          website_analysis_error: string | null
+          website_analysis_status: string
+          website_analyzed_at: string | null
           website_url: string | null
           workspace_id: string
         }
         Insert: {
+          ai_suggestions?: Json
+          ai_suggestions_at?: string | null
           brand_name?: string | null
           brand_notes?: string | null
           brand_positioning?: string | null
           brand_voice?: string | null
           client_id: string
+          completed_at?: string | null
+          content_formats?: string | null
+          content_goals?: string | null
+          content_instructions?: string | null
+          content_topics?: string | null
           created_at?: string
           created_by?: string | null
+          cta_preferences?: string | null
+          customer_problems?: string | null
           description?: string | null
+          desired_perception?: string | null
           extras?: Json
+          field_sources?: Json
           id?: string
           industry?: string | null
+          key_differentiators?: string | null
           key_offerings?: string | null
+          onboarding_status?: string
+          products_services?: string | null
           target_audience?: string | null
           tone_preferences?: string | null
           updated_at?: string
+          usp?: string | null
+          voice_config?: Json
+          website_analysis?: Json | null
+          website_analysis_error?: string | null
+          website_analysis_status?: string
+          website_analyzed_at?: string | null
           website_url?: string | null
           workspace_id: string
         }
         Update: {
+          ai_suggestions?: Json
+          ai_suggestions_at?: string | null
           brand_name?: string | null
           brand_notes?: string | null
           brand_positioning?: string | null
           brand_voice?: string | null
           client_id?: string
+          completed_at?: string | null
+          content_formats?: string | null
+          content_goals?: string | null
+          content_instructions?: string | null
+          content_topics?: string | null
           created_at?: string
           created_by?: string | null
+          cta_preferences?: string | null
+          customer_problems?: string | null
           description?: string | null
+          desired_perception?: string | null
           extras?: Json
+          field_sources?: Json
           id?: string
           industry?: string | null
+          key_differentiators?: string | null
           key_offerings?: string | null
+          onboarding_status?: string
+          products_services?: string | null
           target_audience?: string | null
           tone_preferences?: string | null
           updated_at?: string
+          usp?: string | null
+          voice_config?: Json
+          website_analysis?: Json | null
+          website_analysis_error?: string | null
+          website_analysis_status?: string
+          website_analyzed_at?: string | null
           website_url?: string | null
           workspace_id?: string
         }

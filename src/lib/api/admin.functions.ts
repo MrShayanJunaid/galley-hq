@@ -269,6 +269,12 @@ export type AdminClientRow = {
   workspaceName: string;
   workspaceSlug: string;
   brand: {
+    onboardingStatus: string;
+    completedAt: string | null;
+    updatedAt: string;
+    websiteAnalysisStatus: string;
+    websiteAnalyzedAt: string | null;
+    voice: Record<string, string>;
     industry: string | null;
     websiteUrl: string | null;
     description: string | null;
@@ -310,6 +316,12 @@ export const listAdminClients = createServerFn({ method: "GET" })
         workspaceSlug: workspace?.slug ?? "—",
         brand: brand
           ? {
+              onboardingStatus: brand.onboarding_status,
+              completedAt: brand.completed_at,
+              updatedAt: brand.updated_at,
+              websiteAnalysisStatus: brand.website_analysis_status,
+              websiteAnalyzedAt: brand.website_analyzed_at,
+              voice: (brand.voice_config ?? {}) as Record<string, string>,
               industry: brand.industry,
               websiteUrl: brand.website_url,
               description: brand.description,
