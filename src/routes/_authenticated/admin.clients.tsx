@@ -87,7 +87,9 @@ function AdminClientsPage() {
                   <TableHead>Company / brand</TableHead>
                   <TableHead>Workspace</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Created</TableHead>
+                  <TableHead>Brand onboarding</TableHead>
+                  <TableHead>Website analysis</TableHead>
+                  <TableHead>Brand updated</TableHead>
                   <TableHead className="text-right">Brand</TableHead>
                 </TableRow>
               </TableHeader>
@@ -108,8 +110,22 @@ function AdminClientsPage() {
                         {client.status}
                       </Badge>
                     </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={
+                          client.brand?.onboardingStatus === "completed" ? "default" : "outline"
+                        }
+                      >
+                        {client.brand?.onboardingStatus?.replace("_", " ") ?? "not started"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground capitalize">
+                      {client.brand?.websiteAnalysisStatus === "completed"
+                        ? `Yes · ${formatDay(client.brand.websiteAnalyzedAt)}`
+                        : (client.brand?.websiteAnalysisStatus ?? "not run")}
+                    </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {formatDay(client.createdAt)}
+                      {client.brand ? formatDay(client.brand.updatedAt) : "—"}
                     </TableCell>
                     <TableCell className="text-right">
                       <Button variant="ghost" size="sm" onClick={() => setSelected(client)}>
@@ -141,6 +157,25 @@ function AdminClientsPage() {
             <Row label="Target audience" value={selected?.brand?.targetAudience ?? null} />
             <Row label="Positioning" value={selected?.brand?.brandPositioning ?? null} />
             <Row label="Brand voice" value={selected?.brand?.brandVoice ?? null} />
+            <Row
+              label="Voice configuration"
+              value={
+                selected?.brand?.voice && Object.keys(selected.brand.voice).length > 0
+                  ? Object.entries(selected.brand.voice)
+                      .filter(([, value]) => Boolean(value))
+                      .map(([key, value]) => `${key}: ${value}`)
+                      .join("\n")
+                  : null
+              }
+            />
+            <Row
+              label="Onboarding"
+              value={
+                selected?.brand
+                  ? `${selected.brand.onboardingStatus.replace("_", " ")}${selected.brand.completedAt ? ` · completed ${formatDay(selected.brand.completedAt)}` : ""}`
+                  : "not started"
+              }
+            />
           </dl>
         </DialogContent>
       </Dialog>
