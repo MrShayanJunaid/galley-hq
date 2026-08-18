@@ -14,6 +14,81 @@ export type Database = {
   }
   public: {
     Tables: {
+      client_brand_profiles: {
+        Row: {
+          brand_name: string | null
+          brand_notes: string | null
+          brand_positioning: string | null
+          brand_voice: string | null
+          client_id: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          extras: Json
+          id: string
+          industry: string | null
+          key_offerings: string | null
+          target_audience: string | null
+          tone_preferences: string | null
+          updated_at: string
+          website_url: string | null
+          workspace_id: string
+        }
+        Insert: {
+          brand_name?: string | null
+          brand_notes?: string | null
+          brand_positioning?: string | null
+          brand_voice?: string | null
+          client_id: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          extras?: Json
+          id?: string
+          industry?: string | null
+          key_offerings?: string | null
+          target_audience?: string | null
+          tone_preferences?: string | null
+          updated_at?: string
+          website_url?: string | null
+          workspace_id: string
+        }
+        Update: {
+          brand_name?: string | null
+          brand_notes?: string | null
+          brand_positioning?: string | null
+          brand_voice?: string | null
+          client_id?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          extras?: Json
+          id?: string
+          industry?: string | null
+          key_offerings?: string | null
+          target_audience?: string | null
+          tone_preferences?: string | null
+          updated_at?: string
+          website_url?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_brand_profiles_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: true
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_brand_profiles_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clients: {
         Row: {
           company_name: string
