@@ -52,14 +52,14 @@ function stripHtml(html: string): string {
 
 function titleOf(html: string): string | null {
   const match = /<title[^>]*>([\s\S]*?)<\/title>/i.exec(html);
-  return match ? stripHtml(match[1]).slice(0, 200) : null;
+  return match ? stripHtml(match[1] ?? "").slice(0, 200) : null;
 }
 
 function metaDescription(html: string): string | null {
   const match =
     /<meta[^>]+name=["']description["'][^>]*content=["']([^"']+)["']/i.exec(html) ??
     /<meta[^>]+content=["']([^"']+)["'][^>]*name=["']description["']/i.exec(html);
-  return match ? stripHtml(match[1]).slice(0, 400) : null;
+  return match ? stripHtml(match[1] ?? "").slice(0, 400) : null;
 }
 
 async function fetchPage(url: string, timeoutMs = 15000): Promise<FetchedPage> {
@@ -106,7 +106,7 @@ function discoverInternalLinks(html: string, origin: string): string[] {
   const found = new Set<string>();
   for (const match of html.matchAll(/href=["']([^"'#?]+)["']/gi)) {
     const href = match[1];
-    if (!wanted.test(href)) continue;
+    if (!href || !wanted.test(href)) continue;
     try {
       const url = new URL(href, origin);
       if (url.origin !== origin) continue;
@@ -157,16 +157,18 @@ export async function retrieveWebsite(websiteUrl: string): Promise<FetchedPage[]
   return pages;
 }
 
+export type BrandInsights = {
+  value_proposition: string | null;
+  key_messaging: string[];
+  brand_terminology: string[];
+  important_sections: string[];
+  audience_signals: string[];
+  notes: string | null;
+};
+
 export type ExtractedBrand = {
   suggestions: Record<string, string>;
-  insights: {
-    value_proposition: string | null;
-    key_messaging: string[];
-    brand_terminology: string[];
-    important_sections: string[];
-    audience_signals: string[];
-    notes: string | null;
-  };
+  insights: BrandInsights;
   model: string;
 };
 

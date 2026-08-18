@@ -28,13 +28,13 @@ export function SuggestionReview({
   values: BrandFieldValues;
   suggestions: Record<string, string>;
   sources: Record<string, string>;
-  generatedAt?: string | null;
-  sourceUrl?: string | null;
+  generatedAt?: string | null | undefined;
+  sourceUrl?: string | null | undefined;
   onAccept: (key: string) => void;
   onReject: (key: string) => void;
   onAcceptAll: () => void;
   onDiscardAll: () => void;
-  busy?: boolean;
+  busy?: boolean | undefined;
 }) {
   const keys = Object.keys(suggestions);
   if (keys.length === 0) return null;

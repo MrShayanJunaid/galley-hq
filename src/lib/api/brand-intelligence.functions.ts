@@ -3,6 +3,18 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { normalizeWebsiteUrl } from "@/lib/brand/schema";
 
+export type WebsiteInsights = {
+  value_proposition: string | null;
+  key_messaging: string[];
+  brand_terminology: string[];
+  important_sections: string[];
+  audience_signals: string[];
+  notes: string | null;
+  pages: Array<{ url: string; title: string | null }>;
+  analyzedAt: string;
+  model: string;
+};
+
 export type AnalyzeWebsiteInput = {
   clientId: string;
   websiteUrl: string;
@@ -15,7 +27,7 @@ export type AnalyzeWebsiteResult =
       websiteUrl: string;
       pages: Array<{ url: string; title: string | null }>;
       suggestions: Record<string, string>;
-      insights: Record<string, unknown>;
+      insights: WebsiteInsights;
       model: string;
       generatedAt: string;
     }
@@ -107,7 +119,7 @@ export const analyzeClientWebsite = createServerFn({ method: "POST" })
       });
 
       const generatedAt = new Date().toISOString();
-      const insights = {
+      const insights: WebsiteInsights = {
         ...extracted.insights,
         pages: pages.map((page) => ({ url: page.url, title: page.title })),
         analyzedAt: generatedAt,

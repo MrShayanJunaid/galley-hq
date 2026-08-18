@@ -132,23 +132,22 @@ export async function saveBrandProfile({
     textPayload[key] = key === "website_url" ? normalizeWebsiteUrl(values.website_url) : normalize(values[key]);
   }
 
-  const payload = {
+  type ProfileInsert = Database["public"]["Tables"]["client_brand_profiles"]["Insert"];
+  const payload: ProfileInsert = {
     client_id: clientId,
     workspace_id: workspaceId,
     ...textPayload,
-    voice_config: values.voice as unknown as Database["public"]["Tables"]["client_brand_profiles"]["Insert"]["voice_config"],
-    field_sources: sources as unknown as Database["public"]["Tables"]["client_brand_profiles"]["Insert"]["field_sources"],
+    voice_config: values.voice as unknown as ProfileInsert["voice_config"],
+    field_sources: sources as unknown as ProfileInsert["field_sources"],
     onboarding_status: status,
     completed_at: completion.isComplete ? (existing?.completed_at ?? new Date().toISOString()) : null,
     created_by: existing?.created_by ?? userData.user?.id ?? null,
-    ...(suggestions !== undefined
-      ? {
-          ai_suggestions: (suggestions ??
-            {}) as unknown as Database["public"]["Tables"]["client_brand_profiles"]["Insert"]["ai_suggestions"],
-          ai_suggestions_at: suggestions?.generatedAt ?? null,
-        }
-      : {}),
   };
+
+  if (suggestions !== undefined) {
+    payload.ai_suggestions = (suggestions ?? {}) as unknown as ProfileInsert["ai_suggestions"];
+    payload.ai_suggestions_at = suggestions?.generatedAt ?? null;
+  }
 
   const { data, error } = await supabase
     .from("client_brand_profiles")
