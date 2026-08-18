@@ -56,6 +56,8 @@ export const Route = createFileRoute("/_authenticated/clients/$clientId")({
         property: "og:description",
         content: "Client overview and workspace inside GalleyHQ.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: ClientDetailPage,
