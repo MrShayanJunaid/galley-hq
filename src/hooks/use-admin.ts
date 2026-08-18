@@ -5,6 +5,7 @@ import {
   checkAdminAccess,
   getAdminOverview,
   listAdminPlans,
+  listAdminClients,
   listAdminSubscriptions,
   listAdminUsers,
   listAdminWorkspaces,
@@ -17,6 +18,7 @@ export const adminKeys = {
   workspaces: ["admin", "workspaces"] as const,
   plans: ["admin", "plans"] as const,
   subscriptions: ["admin", "subscriptions"] as const,
+  clients: ["admin", "clients"] as const,
 };
 
 export function useAdminAccess() {
@@ -55,4 +57,9 @@ export function useAdminSubscriptions() {
     queryFn: () => fn(),
     staleTime: 30_000,
   });
+}
+
+export function useAdminClients() {
+  const fn = useServerFn(listAdminClients);
+  return useQuery({ queryKey: adminKeys.clients, queryFn: () => fn(), staleTime: 30_000 });
 }

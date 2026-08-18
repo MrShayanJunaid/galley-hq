@@ -93,6 +93,19 @@ export async function updateClient(
   return data;
 }
 
+/** Archiving keeps the record but removes it from active client lists. */
+export async function setClientStatus(clientId: string, status: string): Promise<Client> {
+  const { data, error } = await supabase
+    .from("clients")
+    .update({ status })
+    .eq("id", clientId)
+    .select("*")
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
 export async function deleteClient(clientId: string): Promise<void> {
   const { error } = await supabase.from("clients").delete().eq("id", clientId);
   if (error) throw error;
