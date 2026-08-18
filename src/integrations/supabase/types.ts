@@ -205,6 +205,30 @@ export type Database = {
           },
         ]
       }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       workspace_members: {
         Row: {
           created_at: string
@@ -276,6 +300,13 @@ export type Database = {
         Args: { _full_name?: string; _workspace_name?: string }
         Returns: string
       }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
       has_workspace_role: {
         Args: {
           _roles: Database["public"]["Enums"]["workspace_role"][]
@@ -284,12 +315,14 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_platform_admin: { Args: never; Returns: boolean }
       is_workspace_member: {
         Args: { _user_id: string; _workspace_id: string }
         Returns: boolean
       }
     }
     Enums: {
+      app_role: "admin" | "support"
       billing_provider: "none" | "stripe" | "paddle" | "manual"
       subscription_status:
         | "trialing"
@@ -426,6 +459,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      app_role: ["admin", "support"],
       billing_provider: ["none", "stripe", "paddle", "manual"],
       subscription_status: [
         "trialing",
