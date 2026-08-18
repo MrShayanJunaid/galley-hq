@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 
+import { adminDb, assertAdmin, isPlatformAdmin } from "@/lib/api/admin-guard";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 export type AdminOverview = {
@@ -60,37 +61,17 @@ export type AdminSubscriptionRow = {
   createdAt: string;
 };
 
-/** Throws unless the *caller's own session* carries the platform admin role. */
-async function assertAdmin(context: { supabase: { rpc: (fn: never) => unknown }; userId: string }) {
-  const client = context.supabase as unknown as {
-    rpc: (fn: string) => Promise<{ data: unknown; error: unknown }>;
-  };
-  const { data, error } = await client.rpc("is_platform_admin");
-  if (error || data !== true) {
-    throw new Error("Forbidden: admin role required");
-  }
-}
-
-async function admin() {
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  return supabaseAdmin;
-}
-
 export const checkAdminAccess = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const client = context.supabase as unknown as {
-      rpc: (fn: string) => Promise<{ data: unknown; error: unknown }>;
-    };
-    const { data, error } = await client.rpc("is_platform_admin");
-    return { isAdmin: !error && data === true };
+    return { isAdmin: await isPlatformAdmin(context.supabase) };
   });
 
 export const getAdminOverview = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<AdminOverview> => {
-    await assertAdmin(context as never);
-    const db = await admin();
+    await assertAdmin(context.supabase);
+    const db = await adminDb();
 
     const [workspaces, subscriptions, plans, members, profiles, clients] = await Promise.all([
       db.from("workspaces").select("id,name,slug,created_at").order("created_at", { ascending: false }),
@@ -151,8 +132,8 @@ export const getAdminOverview = createServerFn({ method: "GET" })
 export const listAdminUsers = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<AdminUserRow[]> => {
-    await assertAdmin(context as never);
-    const db = await admin();
+    await assertAdmin(context.supabase);
+    const db = await adminDb();
 
     const [{ data: userList }, profiles, members, workspaces, roles] = await Promise.all([
       db.auth.admin.listUsers({ page: 1, perPage: 200 }),
@@ -188,8 +169,8 @@ export const listAdminUsers = createServerFn({ method: "GET" })
 export const listAdminWorkspaces = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<AdminWorkspaceRow[]> => {
-    await assertAdmin(context as never);
-    const db = await admin();
+    await assertAdmin(context.supabase);
+    const db = await adminDb();
 
     const [workspaces, members, clients, subscriptions] = await Promise.all([
       db.from("workspaces").select("id,name,slug,created_at").order("created_at", { ascending: false }),
@@ -224,8 +205,8 @@ export const listAdminWorkspaces = createServerFn({ method: "GET" })
 export const listAdminPlans = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<AdminPlanRow[]> => {
-    await assertAdmin(context as never);
-    const db = await admin();
+    await assertAdmin(context.supabase);
+    const db = await adminDb();
 
     const [plans, subscriptions] = await Promise.all([
       db.from("plans").select("*").order("sort_order", { ascending: true }),
@@ -255,8 +236,8 @@ export const listAdminPlans = createServerFn({ method: "GET" })
 export const listAdminSubscriptions = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<AdminSubscriptionRow[]> => {
-    await assertAdmin(context as never);
-    const db = await admin();
+    await assertAdmin(context.supabase);
+    const db = await adminDb();
 
     const { data } = await db
       .from("subscriptions")
