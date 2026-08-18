@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import type { Database } from "@/integrations/supabase/types";
+import type { Database, Json } from "@/integrations/supabase/types";
 import {
   BRAND_SECTIONS,
   VOICE_FIELDS,
@@ -137,15 +137,15 @@ export async function saveBrandProfile({
     client_id: clientId,
     workspace_id: workspaceId,
     ...textPayload,
-    voice_config: values.voice as unknown as ProfileInsert["voice_config"],
-    field_sources: sources as unknown as ProfileInsert["field_sources"],
+    voice_config: values.voice as unknown as Json,
+    field_sources: sources as unknown as Json,
     onboarding_status: status,
     completed_at: completion.isComplete ? (existing?.completed_at ?? new Date().toISOString()) : null,
     created_by: existing?.created_by ?? userData.user?.id ?? null,
   };
 
   if (suggestions !== undefined) {
-    payload.ai_suggestions = (suggestions ?? {}) as unknown as ProfileInsert["ai_suggestions"];
+    payload.ai_suggestions = (suggestions ?? {}) as unknown as Json;
     payload.ai_suggestions_at = suggestions?.generatedAt ?? null;
   }
 
