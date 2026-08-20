@@ -84,8 +84,25 @@ async function fetchPage(url: string, timeoutMs = 15000): Promise<FetchedPage> {
       },
     });
 
+    logStage("fetch", { url, finalUrl: response.url, status: response.status });
+
+    if (response.status === 404 || response.status === 410) {
+      throw new BrandAnalysisError(
+        "website_not_found",
+        `The website returned "404 Not Found" for ${response.url || url}. This is the client's site responding, not a GalleyHQ error — check the URL or whether the site is live.`,
+      );
+    }
     if (response.status === 401 || response.status === 403 || response.status === 429) {
-      throw new BrandAnalysisError("blocked", `The website blocked our request (HTTP ${response.status}).`);
+      throw new BrandAnalysisError(
+        "blocked",
+        `The website blocked our automated request (HTTP ${response.status}). Paste the brand details manually or try a page that allows crawlers.`,
+      );
+    }
+    if (response.status >= 500) {
+      throw new BrandAnalysisError(
+        "unreachable",
+        `The website is temporarily unavailable (HTTP ${response.status}). Try again shortly.`,
+      );
     }
     if (!response.ok) {
       throw new BrandAnalysisError("unreachable", `The website returned HTTP ${response.status}.`);
@@ -105,9 +122,16 @@ async function fetchPage(url: string, timeoutMs = 15000): Promise<FetchedPage> {
     if (error instanceof Error && error.name === "AbortError") {
       throw new BrandAnalysisError("timeout", "The website took too long to respond.");
     }
-    throw new BrandAnalysisError("unreachable", "We couldn't reach that website.");
+    logStage("fetch_failed", { url, error: error instanceof Error ? error.message : "unknown" });
+    throw new BrandAnalysisError(
+      "unreachable",
+      `We couldn't reach ${url}. Check that the domain is spelled correctly and publicly reachable.`,
+    );
+  } finally {
+    clearTimeout(timer);
   }
 }
+
 
 function discoverInternalLinks(html: string, origin: string): string[] {
   const wanted = /(about|services|product|solutions|pricing|who-we-are|what-we-do|shop)/i;
