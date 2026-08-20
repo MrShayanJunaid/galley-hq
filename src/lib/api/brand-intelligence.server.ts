@@ -342,15 +342,15 @@ export async function extractBrandFromPages(
   let raw = "";
 
   try {
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const response = await fetch(provider.url, {
       method: "POST",
       signal: controller.signal,
       headers: {
         "content-type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
+        Authorization: `Bearer ${provider.key}`,
       },
       body: JSON.stringify({
-        model: AI_MODEL,
+        model: provider.model,
         stream: true,
         response_format: { type: "json_object" },
         messages: [
@@ -361,8 +361,21 @@ export async function extractBrandFromPages(
     });
 
     if (!response.ok) {
-      const body = await response.text();
-      console.error(`AI gateway error [${response.status}]: ${body}`);
+      const body = (await response.text()).slice(0, 800);
+      // Never log the key itself — only provider, status and provider message.
+      console.error(`[brand-analysis] ai_error provider=${provider.label} status=${response.status}: ${body}`);
+      if (response.status === 401) {
+        throw new BrandAnalysisError(
+          "ai_auth",
+          "The AI provider rejected the configured API key. Update the key and try again.",
+        );
+      }
+      if (response.status === 404) {
+        throw new BrandAnalysisError(
+          "ai_failed",
+          `The AI model "${provider.model}" is not available for this key. Set OPENAI_MODEL to a model your account can access.`,
+        );
+      }
       if (response.status === 429) {
         throw new BrandAnalysisError("ai_rate_limited", "The AI service is rate limited. Try again in a moment.");
       }
@@ -378,6 +391,7 @@ export async function extractBrandFromPages(
     if (!response.body) {
       throw new BrandAnalysisError("ai_failed", "The AI service returned an empty response.");
     }
+
 
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
