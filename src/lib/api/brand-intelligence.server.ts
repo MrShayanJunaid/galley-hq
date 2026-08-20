@@ -12,10 +12,12 @@ export type FetchedPage = {
 export class BrandAnalysisError extends Error {
   code:
     | "invalid_url"
+    | "website_not_found"
     | "unreachable"
     | "blocked"
     | "empty"
     | "ai_unavailable"
+    | "ai_auth"
     | "ai_rate_limited"
     | "ai_credits"
     | "ai_failed"
@@ -26,6 +28,12 @@ export class BrandAnalysisError extends Error {
     this.code = code;
   }
 }
+
+/** Server-side, credential-free stage logging so failures can be traced. */
+function logStage(stage: string, detail: Record<string, unknown>) {
+  console.log(`[brand-analysis] ${stage}`, JSON.stringify(detail));
+}
+
 
 const USER_AGENT =
   "Mozilla/5.0 (compatible; GalleyHQBrandBot/1.0; +https://galleyhq.com/bot)";
