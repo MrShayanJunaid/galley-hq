@@ -238,7 +238,37 @@ export type ExtractedBrand = {
   model: string;
 };
 
-const AI_MODEL = "openai/gpt-5.6-sol";
+const LOVABLE_AI_MODEL = "openai/gpt-5.6-sol";
+const LOVABLE_AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
+const OPENAI_DEFAULT_MODEL = "gpt-4.1-mini";
+
+type AiProvider = { url: string; key: string; model: string; label: "openai" | "lovable" };
+
+/**
+ * Prefers a workspace-provided OPENAI_API_KEY (server-side secret) and falls back
+ * to the managed Lovable AI Gateway. Keys are only ever read inside server code.
+ */
+function resolveAiProvider(): AiProvider {
+  const openaiKey = process.env["OPENAI_API_KEY"];
+  if (openaiKey) {
+    return {
+      url: OPENAI_URL,
+      key: openaiKey,
+      model: process.env["OPENAI_MODEL"] ?? OPENAI_DEFAULT_MODEL,
+      label: "openai",
+    };
+  }
+  const lovableKey = process.env["LOVABLE_API_KEY"];
+  if (lovableKey) {
+    return { url: LOVABLE_AI_URL, key: lovableKey, model: LOVABLE_AI_MODEL, label: "lovable" };
+  }
+  throw new BrandAnalysisError(
+    "ai_unavailable",
+    "No AI provider is configured. Add an OPENAI_API_KEY server secret to enable brand extraction.",
+  );
+}
+
 
 const SUGGESTION_KEYS = [
   "industry",
