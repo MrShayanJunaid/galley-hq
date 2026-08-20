@@ -151,10 +151,44 @@ function discoverInternalLinks(html: string, origin: string): string[] {
   return [...found];
 }
 
+/** Builds candidate entry URLs: the given URL, then www/non-www variants of the same host. */
+function entryCandidates(websiteUrl: string): string[] {
+  const candidates = [websiteUrl];
+  try {
+    const url = new URL(websiteUrl);
+    const alt = new URL(websiteUrl);
+    alt.hostname = url.hostname.startsWith("www.")
+      ? url.hostname.slice(4)
+      : `www.${url.hostname}`;
+    candidates.push(alt.toString());
+    if (url.pathname !== "/" && url.pathname !== "") {
+      candidates.push(`${url.origin}/`);
+    }
+  } catch {
+    /* normalizeWebsiteUrl already validated the shape */
+  }
+  return [...new Set(candidates)];
+}
+
 /** Retrieves the home page plus up to 2 relevant internal pages. */
 export async function retrieveWebsite(websiteUrl: string): Promise<FetchedPage[]> {
-  const home = await fetchPage(websiteUrl);
+  const candidates = entryCandidates(websiteUrl);
+  let home: FetchedPage | null = null;
+  let lastError: unknown = null;
+  for (const candidate of candidates) {
+    try {
+      home = await fetchPage(candidate);
+      websiteUrl = candidate;
+      break;
+    } catch (error) {
+      lastError = error;
+      // Only worth trying an alternate host for not-found / unreachable hosts.
+      if (error instanceof BrandAnalysisError && error.code === "blocked") break;
+    }
+  }
+  if (!home) throw lastError instanceof Error ? lastError : new BrandAnalysisError("unreachable", "We couldn't reach that website.");
   const pages: FetchedPage[] = [home];
+
 
   let rawHtml = "";
   try {
