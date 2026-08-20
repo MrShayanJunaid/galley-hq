@@ -456,6 +456,6 @@ export async function extractBrandFromPages(
       audience_signals: stringArray(parsed["audience_signals"], 5),
       notes: typeof parsed["notes"] === "string" ? (parsed["notes"] as string).slice(0, 800) : null,
     },
-    model: AI_MODEL,
+    model: provider.model,
   };
 }
