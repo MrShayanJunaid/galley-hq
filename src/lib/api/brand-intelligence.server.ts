@@ -298,15 +298,19 @@ function stringArray(value: unknown, limit = 8): string[] {
     .slice(0, limit);
 }
 
-/** Calls the Lovable AI Gateway (streamed, consumed server-side) and returns structured brand data. */
+/** Calls the configured AI provider (streamed, consumed server-side) and returns structured brand data. */
 export async function extractBrandFromPages(
   pages: FetchedPage[],
   hints: { brandName?: string | null; websiteUrl: string },
 ): Promise<ExtractedBrand> {
-  const apiKey = process.env["LOVABLE_API_KEY"];
-  if (!apiKey) {
-    throw new BrandAnalysisError("ai_unavailable", "The AI service is not configured for this project.");
-  }
+  const provider = resolveAiProvider();
+  logStage("ai_request", {
+    provider: provider.label,
+    model: provider.model,
+    pages: pages.length,
+    url: hints.websiteUrl,
+  });
+
 
   const corpus = pages
     .map((page) => `--- PAGE: ${page.url}\nTITLE: ${page.title ?? "n/a"}\n${page.text}`)
