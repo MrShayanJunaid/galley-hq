@@ -231,13 +231,19 @@ function ClientDetailPage() {
             </CardContent>
           </Card>
 
-          <div className="mt-6">
-            <BrandSummaryCard
-              clientId={client.id}
-              clientName={client.company_name}
-              clientWebsite={client.website}
-            />
-          </div>
+          <section className="mt-10">
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+              Brand Intelligence
+            </h2>
+            <div className="mt-4">
+              <BrandSummaryCard
+                clientId={client.id}
+                clientName={client.company_name}
+                clientWebsite={client.website}
+              />
+            </div>
+          </section>
+
 
           <section className="mt-10">
             <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
