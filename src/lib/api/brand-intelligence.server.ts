@@ -204,7 +204,7 @@ export async function retrieveWebsite(websiteUrl: string): Promise<FetchedPage[]
     const origin = new URL(websiteUrl).origin;
     const candidates = discoverInternalLinks(rawHtml, origin)
       .filter((url) => url !== websiteUrl.replace(/\/$/, ""))
-      .slice(0, 2);
+      .slice(0, 4);
     for (const candidate of candidates) {
       try {
         const page = await fetchPage(candidate, 10_000);
