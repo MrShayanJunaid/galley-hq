@@ -362,13 +362,18 @@ export async function extractBrandFromPages(
 
   const system = [
     "You are a brand strategist extracting structured brand intelligence for a marketing agency.",
-    "Use ONLY evidence from the supplied website text. Never invent facts, awards, or numbers.",
+    "Use ONLY evidence from the supplied website text. Never invent facts, awards, numbers, or preferences.",
     "Summarize in your own words; do not copy long passages from the site.",
+    "Attempt EVERY key below. Voice, tone and content-preference fields can legitimately be *inferred from how the copy is written* and from the site's structure and calls to action — that is evidence, not invention.",
+    "But if a field has no supporting evidence at all, OMIT the key entirely rather than guessing or writing a placeholder.",
     "Respond with a single JSON object and nothing else.",
     "Every string value: max 600 characters, plain text, no markdown.",
-    "Omit any key you cannot support with evidence rather than guessing.",
-    `JSON keys allowed: ${SUGGESTION_KEYS.join(", ")}, value_proposition, key_messaging (array of max 5 strings), brand_terminology (array of max 8 strings), important_sections (array of max 6 strings), audience_signals (array of max 5 strings), notes.`,
+    "Field guidance:",
+    ...SUGGESTION_KEYS.map((key) => `- ${key}: ${FIELD_GUIDANCE[key] ?? ""}`),
+    `Additional keys allowed: value_proposition, key_messaging (array of max 5 strings), brand_terminology (array of max 8 strings), important_sections (array of max 6 strings), audience_signals (array of max 5 strings), notes.`,
+    "Use no keys other than those listed.",
   ].join("\n");
+
 
   const user = [
     `Website: ${hints.websiteUrl}`,
