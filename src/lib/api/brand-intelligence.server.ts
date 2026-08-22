@@ -134,7 +134,9 @@ async function fetchPage(url: string, timeoutMs = 15000): Promise<FetchedPage> {
 
 
 function discoverInternalLinks(html: string, origin: string): string[] {
-  const wanted = /(about|services|product|solutions|pricing|who-we-are|what-we-do|shop)/i;
+  const wanted =
+    /(about|services|product|solutions|pricing|who-we-are|what-we-do|shop|blog|news|insights|resources|case-stud|portfolio|work|contact)/i;
+
   const found = new Set<string>();
   for (const match of html.matchAll(/href=["']([^"'#?]+)["']/gi)) {
     const href = match[1];
