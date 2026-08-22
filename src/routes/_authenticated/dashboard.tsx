@@ -26,6 +26,8 @@ const modules = [
     title: "Brand intelligence",
     description: "Capture each client's tone, audience and visual identity.",
     icon: Sparkles,
+    to: "/brand" as const,
+    cta: "Open Brand Intelligence",
   },
   {
     title: "Idea & caption studio",
@@ -43,6 +45,7 @@ const modules = [
     icon: Building2,
   },
 ];
+
 
 function DashboardPage() {
   const { data: context } = useWorkspaceContext();
