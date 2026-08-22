@@ -281,14 +281,57 @@ const SUGGESTION_KEYS = [
   "customer_problems",
   "desired_perception",
   "content_topics",
+  "content_goals",
+  "content_formats",
   "cta_preferences",
+  "content_instructions",
   "voice.tone",
   "voice.formality",
   "voice.personality",
   "voice.writing_style",
+  "voice.language",
   "voice.words_to_use",
   "voice.words_to_avoid",
+  "voice.communication_rules",
 ];
+
+/** Per-field extraction guidance so voice and content fields are attempted, not skipped. */
+const FIELD_GUIDANCE: Record<string, string> = {
+  industry: "The market/category the brand operates in.",
+  description: "What the business does, for whom, and how.",
+  products_services: "Named products, services or packages offered.",
+  target_audience: "Who the site speaks to: segments, roles, needs, buying triggers.",
+  brand_positioning: "Category, promise, and the alternative it replaces.",
+  usp: "The single strongest stated reason to choose this brand.",
+  key_differentiators: "Concrete proof points the site claims (process, guarantees, expertise).",
+  customer_problems: "Pain points the copy says customers face.",
+  desired_perception: "How the brand clearly wants to be perceived, based on its own framing.",
+  content_topics:
+    "Recurring themes/pillars evidenced by site sections, service pages, blog/resource titles.",
+  content_goals:
+    "What the site's content is trying to achieve (lead generation, bookings, awareness, education, recruitment) inferred from its calls to action and page structure.",
+  content_formats:
+    "Content formats the brand actually publishes (blog articles, case studies, guides, videos, podcasts, newsletters, galleries) as evidenced on the site.",
+  cta_preferences:
+    "The actual calls to action used on the site (e.g. 'Book a free consultation', 'Get a quote') and where they lead.",
+  content_instructions:
+    "Explicit constraints or rules visible on the site: legal/regulatory disclaimers, claims to avoid, compliance notes, language requirements.",
+  "voice.tone": "Overall emotional tone of the copy (e.g. warm and confident).",
+  "voice.formality":
+    "One of: Very casual, Conversational, Neutral, Professional, Formal — judged from sentence style and pronoun use.",
+  "voice.personality": "The brand's character as a persona, in one sentence.",
+  "voice.writing_style":
+    "Observable writing mechanics: sentence length, use of first/second person, jargon level, headline patterns, use of lists or questions.",
+  "voice.language":
+    "Language and locale of the site copy, including spelling variant (e.g. 'English (UK)', 'English (US)', 'German').",
+  "voice.words_to_use":
+    "Distinctive words/phrases the brand repeats — product names, taglines, signature terminology. Comma-separated.",
+  "voice.words_to_avoid":
+    "Only when the site gives evidence (e.g. it explicitly avoids or disclaims certain claims/terms, or a stated policy). Otherwise omit.",
+  "voice.communication_rules":
+    "Rules visible in the copy: emoji usage, disclaimers always included, how they refer to customers/team, required legal wording.",
+};
+
 
 function stringArray(value: unknown, limit = 8): string[] {
   if (!Array.isArray(value)) return [];
