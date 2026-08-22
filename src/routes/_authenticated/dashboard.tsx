@@ -1,10 +1,12 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { Building2, Images, Sparkles, Users } from "lucide-react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { ArrowRight, Building2, Images, Sparkles, Users } from "lucide-react";
 
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useWorkspaceContext } from "@/hooks/use-workspace";
+
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
