@@ -20,7 +20,62 @@ export { isValidWebsiteUrl, normalizeWebsiteUrl } from "@/lib/brand/schema";
 export const brandProfileKeys = {
   detail: (clientId: string) => ["brand-profile", clientId] as const,
   runs: (clientId: string) => ["brand-analysis-runs", clientId] as const,
+  overview: (workspaceId: string) => ["brand-overview", workspaceId] as const,
 };
+
+export type BrandOverviewRow = {
+  clientId: string;
+  clientName: string;
+  companyName: string;
+  brandName: string | null;
+  website: string | null;
+  clientStatus: string;
+  onboardingStatus: string;
+  websiteAnalyzedAt: string | null;
+  updatedAt: string;
+};
+
+/**
+ * Lists every client in the workspace with its brand onboarding state.
+ * RLS restricts both clients and brand profiles to workspace members.
+ */
+export async function fetchWorkspaceBrandOverview(workspaceId: string): Promise<BrandOverviewRow[]> {
+  const { data, error } = await supabase
+    .from("clients")
+    .select(
+      "id, name, company_name, website, status, created_at, updated_at, client_brand_profiles(brand_name, onboarding_status, website_analyzed_at, updated_at)",
+    )
+    .eq("workspace_id", workspaceId)
+    .order("created_at", { ascending: false });
+
+  if (error) throw error;
+
+  return (data ?? []).map((row) => {
+    const raw = (row as unknown as { client_brand_profiles?: unknown }).client_brand_profiles;
+    const profile = (Array.isArray(raw) ? raw[0] : raw) as
+      | {
+          brand_name: string | null;
+          onboarding_status: string | null;
+          website_analyzed_at: string | null;
+          updated_at: string | null;
+        }
+      | null
+      | undefined;
+
+    return {
+      clientId: row.id,
+      clientName: row.name,
+      companyName: row.company_name,
+      brandName: profile?.brand_name ?? null,
+      website: row.website ?? null,
+      clientStatus: row.status,
+      onboardingStatus: profile?.onboarding_status ?? "not_started",
+      websiteAnalyzedAt: profile?.website_analyzed_at ?? null,
+      updatedAt: profile?.updated_at ?? row.updated_at,
+    };
+  });
+}
+
 
 const TEXT_FIELDS: BrandTextField[] = BRAND_SECTIONS.flatMap((section) =>
   section.fields.map((field) => field.key),
