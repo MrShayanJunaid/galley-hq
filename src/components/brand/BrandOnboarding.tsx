@@ -94,7 +94,9 @@ export function BrandOnboarding({
         ...(args.nextSuggestions !== undefined ? { suggestions: args.nextSuggestions } : {}),
       });
       queryClient.setQueryData(brandProfileKeys.detail(clientId), saved);
+      void queryClient.invalidateQueries({ queryKey: brandProfileKeys.overview(workspaceId) });
       return saved;
+
     },
     [clientId, workspaceId, queryClient],
   );

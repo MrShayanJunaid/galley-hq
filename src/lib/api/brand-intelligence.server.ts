@@ -134,7 +134,9 @@ async function fetchPage(url: string, timeoutMs = 15000): Promise<FetchedPage> {
 
 
 function discoverInternalLinks(html: string, origin: string): string[] {
-  const wanted = /(about|services|product|solutions|pricing|who-we-are|what-we-do|shop)/i;
+  const wanted =
+    /(about|services|product|solutions|pricing|who-we-are|what-we-do|shop|blog|news|insights|resources|case-stud|portfolio|work|contact)/i;
+
   const found = new Set<string>();
   for (const match of html.matchAll(/href=["']([^"'#?]+)["']/gi)) {
     const href = match[1];
@@ -202,7 +204,7 @@ export async function retrieveWebsite(websiteUrl: string): Promise<FetchedPage[]
     const origin = new URL(websiteUrl).origin;
     const candidates = discoverInternalLinks(rawHtml, origin)
       .filter((url) => url !== websiteUrl.replace(/\/$/, ""))
-      .slice(0, 2);
+      .slice(0, 4);
     for (const candidate of candidates) {
       try {
         const page = await fetchPage(candidate, 10_000);
@@ -281,14 +283,57 @@ const SUGGESTION_KEYS = [
   "customer_problems",
   "desired_perception",
   "content_topics",
+  "content_goals",
+  "content_formats",
   "cta_preferences",
+  "content_instructions",
   "voice.tone",
   "voice.formality",
   "voice.personality",
   "voice.writing_style",
+  "voice.language",
   "voice.words_to_use",
   "voice.words_to_avoid",
+  "voice.communication_rules",
 ];
+
+/** Per-field extraction guidance so voice and content fields are attempted, not skipped. */
+const FIELD_GUIDANCE: Record<string, string> = {
+  industry: "The market/category the brand operates in.",
+  description: "What the business does, for whom, and how.",
+  products_services: "Named products, services or packages offered.",
+  target_audience: "Who the site speaks to: segments, roles, needs, buying triggers.",
+  brand_positioning: "Category, promise, and the alternative it replaces.",
+  usp: "The single strongest stated reason to choose this brand.",
+  key_differentiators: "Concrete proof points the site claims (process, guarantees, expertise).",
+  customer_problems: "Pain points the copy says customers face.",
+  desired_perception: "How the brand clearly wants to be perceived, based on its own framing.",
+  content_topics:
+    "Recurring themes/pillars evidenced by site sections, service pages, blog/resource titles.",
+  content_goals:
+    "What the site's content is trying to achieve (lead generation, bookings, awareness, education, recruitment) inferred from its calls to action and page structure.",
+  content_formats:
+    "Content formats the brand actually publishes (blog articles, case studies, guides, videos, podcasts, newsletters, galleries) as evidenced on the site.",
+  cta_preferences:
+    "The actual calls to action used on the site (e.g. 'Book a free consultation', 'Get a quote') and where they lead.",
+  content_instructions:
+    "Explicit constraints or rules visible on the site: legal/regulatory disclaimers, claims to avoid, compliance notes, language requirements.",
+  "voice.tone": "Overall emotional tone of the copy (e.g. warm and confident).",
+  "voice.formality":
+    "One of: Very casual, Conversational, Neutral, Professional, Formal — judged from sentence style and pronoun use.",
+  "voice.personality": "The brand's character as a persona, in one sentence.",
+  "voice.writing_style":
+    "Observable writing mechanics: sentence length, use of first/second person, jargon level, headline patterns, use of lists or questions.",
+  "voice.language":
+    "Language and locale of the site copy, including spelling variant (e.g. 'English (UK)', 'English (US)', 'German').",
+  "voice.words_to_use":
+    "Distinctive words/phrases the brand repeats — product names, taglines, signature terminology. Comma-separated.",
+  "voice.words_to_avoid":
+    "Only when the site gives evidence (e.g. it explicitly avoids or disclaims certain claims/terms, or a stated policy). Otherwise omit.",
+  "voice.communication_rules":
+    "Rules visible in the copy: emoji usage, disclaimers always included, how they refer to customers/team, required legal wording.",
+};
+
 
 function stringArray(value: unknown, limit = 8): string[] {
   if (!Array.isArray(value)) return [];
@@ -319,13 +364,18 @@ export async function extractBrandFromPages(
 
   const system = [
     "You are a brand strategist extracting structured brand intelligence for a marketing agency.",
-    "Use ONLY evidence from the supplied website text. Never invent facts, awards, or numbers.",
+    "Use ONLY evidence from the supplied website text. Never invent facts, awards, numbers, or preferences.",
     "Summarize in your own words; do not copy long passages from the site.",
+    "Attempt EVERY key below. Voice, tone and content-preference fields can legitimately be *inferred from how the copy is written* and from the site's structure and calls to action — that is evidence, not invention.",
+    "But if a field has no supporting evidence at all, OMIT the key entirely rather than guessing or writing a placeholder.",
     "Respond with a single JSON object and nothing else.",
     "Every string value: max 600 characters, plain text, no markdown.",
-    "Omit any key you cannot support with evidence rather than guessing.",
-    `JSON keys allowed: ${SUGGESTION_KEYS.join(", ")}, value_proposition, key_messaging (array of max 5 strings), brand_terminology (array of max 8 strings), important_sections (array of max 6 strings), audience_signals (array of max 5 strings), notes.`,
+    "Field guidance:",
+    ...SUGGESTION_KEYS.map((key) => `- ${key}: ${FIELD_GUIDANCE[key] ?? ""}`),
+    `Additional keys allowed: value_proposition, key_messaging (array of max 5 strings), brand_terminology (array of max 8 strings), important_sections (array of max 6 strings), audience_signals (array of max 5 strings), notes.`,
+    "Use no keys other than those listed.",
   ].join("\n");
+
 
   const user = [
     `Website: ${hints.websiteUrl}`,
