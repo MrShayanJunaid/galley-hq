@@ -95,11 +95,72 @@ export const OBJECTIVES: ObjectiveDefinition[] = [
 export const CONTENT_STATUSES = [
   { id: "draft", label: "Draft", description: "Still being worked on." },
   { id: "ready_for_creative", label: "Ready for Creative", description: "Copy approved, creative direction ready." },
+  {
+    id: "generating_creative",
+    label: "Generating Creative",
+    description: "A visual is being generated for this content.",
+  },
+  {
+    id: "creative_generated",
+    label: "Creative Generated",
+    description: "A visual has been generated and stored.",
+  },
   { id: "ready_for_review", label: "Ready for Review", description: "Waiting on internal review." },
   { id: "archived", label: "Archived", description: "Kept for reference only." },
 ] as const;
 
 export type ContentStatus = (typeof CONTENT_STATUSES)[number]["id"];
+
+/**
+ * Visual output formats. Structured so new platforms / ratios can be added
+ * without touching the generation pipeline.
+ */
+export type CreativeFormat = {
+  id: string;
+  label: string;
+  /** Provider-facing aspect ratio string. */
+  aspectRatio: string;
+  /** CSS aspect-ratio value for previews. */
+  cssRatio: string;
+  platforms: string[];
+};
+
+export const CREATIVE_FORMATS: CreativeFormat[] = [
+  { id: "instagram_square", label: "Instagram square (1:1)", aspectRatio: "1:1", cssRatio: "1 / 1", platforms: ["instagram"] },
+  { id: "instagram_portrait", label: "Instagram portrait (4:5)", aspectRatio: "4:5", cssRatio: "4 / 5", platforms: ["instagram"] },
+  { id: "instagram_story", label: "Instagram story / reel (9:16)", aspectRatio: "9:16", cssRatio: "9 / 16", platforms: ["instagram"] },
+  { id: "instagram_landscape", label: "Instagram landscape (1.91:1)", aspectRatio: "16:9", cssRatio: "1.91 / 1", platforms: ["instagram"] },
+  { id: "facebook_square", label: "Facebook square (1:1)", aspectRatio: "1:1", cssRatio: "1 / 1", platforms: ["facebook"] },
+  { id: "facebook_landscape", label: "Facebook landscape (16:9)", aspectRatio: "16:9", cssRatio: "16 / 9", platforms: ["facebook"] },
+  { id: "linkedin_square", label: "LinkedIn square (1:1)", aspectRatio: "1:1", cssRatio: "1 / 1", platforms: ["linkedin"] },
+  { id: "linkedin_portrait", label: "LinkedIn portrait (4:5)", aspectRatio: "4:5", cssRatio: "4 / 5", platforms: ["linkedin"] },
+  { id: "x_landscape", label: "X landscape (16:9)", aspectRatio: "16:9", cssRatio: "16 / 9", platforms: ["x"] },
+  { id: "x_square", label: "X square (1:1)", aspectRatio: "1:1", cssRatio: "1 / 1", platforms: ["x"] },
+];
+
+export const DEFAULT_CREATIVE_FORMAT_BY_PLATFORM: Record<string, string> = {
+  instagram: "instagram_portrait",
+  facebook: "facebook_square",
+  linkedin: "linkedin_square",
+  x: "x_landscape",
+};
+
+export function formatsForPlatform(platform: string): CreativeFormat[] {
+  const scoped = CREATIVE_FORMATS.filter((format) => format.platforms.includes(platform));
+  return scoped.length > 0 ? scoped : CREATIVE_FORMATS;
+}
+
+export function creativeFormatById(id: string | null | undefined): CreativeFormat | undefined {
+  if (!id) return undefined;
+  return CREATIVE_FORMATS.find((format) => format.id === id);
+}
+
+export function defaultFormatFor(platform: string): string {
+  return (
+    DEFAULT_CREATIVE_FORMAT_BY_PLATFORM[platform] ?? formatsForPlatform(platform)[0]?.id ?? "instagram_square"
+  );
+}
+
 
 export function platformById(id: string): PlatformDefinition | undefined {
   return PLATFORMS.find((platform) => platform.id === id);
