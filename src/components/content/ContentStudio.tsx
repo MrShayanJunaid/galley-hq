@@ -570,15 +570,28 @@ export function ContentStudio({
         </Card>
       ) : null}
 
-      {/* Step 5 — save */}
+      {/* Step 5 — creative visual */}
+      {hasDraft ? (
+        <CreativePanel
+          clientId={clientId}
+          contentItemId={recordId}
+          platform={config.platform}
+          hasCreativeBrief={hasCreativePrompt(creative)}
+          saving={saveMutation.isPending}
+          onSaveFirst={() => void handleSave()}
+        />
+      ) : null}
+
+      {/* Step 6 — save */}
       {hasDraft ? (
         <Card className="shadow-none">
           <CardHeader>
-            <CardTitle className="text-base">5. Review &amp; save</CardTitle>
+            <CardTitle className="text-base">6. Review &amp; save</CardTitle>
             <CardDescription>
               Saved against this client and workspace — brand data stays in the brand profile.
             </CardDescription>
           </CardHeader>
+
           <CardContent className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
