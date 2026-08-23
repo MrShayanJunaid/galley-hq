@@ -19,6 +19,8 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { ContentHistory } from "@/components/content/ContentHistory";
+import { CreativePanel } from "@/components/content/CreativePanel";
+
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -522,7 +524,7 @@ export function ContentStudio({
           <CardHeader>
             <CardTitle className="text-base">4. Creative direction</CardTitle>
             <CardDescription>
-              A structured visual brief for the creative team. No image is generated here.
+              The structured visual brief that drives image generation in the next step.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -570,15 +572,28 @@ export function ContentStudio({
         </Card>
       ) : null}
 
-      {/* Step 5 — save */}
+      {/* Step 5 — creative visual */}
+      {hasDraft ? (
+        <CreativePanel
+          clientId={clientId}
+          contentItemId={recordId}
+          platform={config.platform}
+          hasCreativeBrief={hasCreativePrompt(creative)}
+          saving={saveMutation.isPending}
+          onSaveFirst={() => void handleSave()}
+        />
+      ) : null}
+
+      {/* Step 6 — save */}
       {hasDraft ? (
         <Card className="shadow-none">
           <CardHeader>
-            <CardTitle className="text-base">5. Review &amp; save</CardTitle>
+            <CardTitle className="text-base">6. Review &amp; save</CardTitle>
             <CardDescription>
               Saved against this client and workspace — brand data stays in the brand profile.
             </CardDescription>
           </CardHeader>
+
           <CardContent className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">

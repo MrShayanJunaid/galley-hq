@@ -56,13 +56,16 @@ function AdminContentPage() {
         </div>
       ) : (
         <div className="space-y-6">
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
             <Stat label="Content items" value={data.totals.contentItems} />
             <Stat label="Ready for review" value={data.totals.readyForReview} />
             <Stat label="AI generations" value={data.totals.generations} />
             <Stat label="Failed generations" value={data.totals.failedGenerations} />
             <Stat label="Tokens used" value={data.totals.totalTokens} />
+            <Stat label="Creatives generated" value={data.totals.creativesGenerated} />
+            <Stat label="Creatives failed" value={data.totals.creativesFailed} />
           </div>
+
 
           <Card className="shadow-none">
             <CardHeader>

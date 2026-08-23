@@ -1,4 +1,4 @@
-import { FileText, Loader2, Trash2 } from "lucide-react";
+import { FileText, ImageIcon, Loader2, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -26,6 +26,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useClientContent, useDeleteContent } from "@/hooks/use-content";
+import { useClientCreativeThumbnails } from "@/hooks/use-creatives";
 import type { ContentItem } from "@/lib/api/content-items";
 import { CONTENT_TYPES, OBJECTIVES, PLATFORMS, labelFor } from "@/lib/content/schema";
 
@@ -39,6 +40,7 @@ export function ContentHistory({
   onOpen: (item: ContentItem) => void;
 }) {
   const { data: items, isLoading } = useClientContent(clientId);
+  const { data: thumbnails } = useClientCreativeThumbnails(clientId);
   const deleteMutation = useDeleteContent(clientId);
   const [pendingDelete, setPendingDelete] = useState<ContentItem | null>(null);
 
@@ -68,6 +70,7 @@ export function ContentHistory({
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-16">Visual</TableHead>
                 <TableHead>Title</TableHead>
                 <TableHead>Platform</TableHead>
                 <TableHead>Type / objective</TableHead>
@@ -79,6 +82,20 @@ export function ContentHistory({
             <TableBody>
               {(items ?? []).map((item) => (
                 <TableRow key={item.id} data-state={item.id === activeId ? "selected" : undefined}>
+                  <TableCell>
+                    {thumbnails?.[item.id]?.url ? (
+                      <img
+                        src={thumbnails[item.id]!.url as string}
+                        alt={`Creative for ${item.title}`}
+                        className="size-12 rounded-md border object-cover"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <span className="flex size-12 items-center justify-center rounded-md border bg-muted text-muted-foreground">
+                        <ImageIcon className="size-4" />
+                      </span>
+                    )}
+                  </TableCell>
                   <TableCell>
                     <button
                       type="button"
