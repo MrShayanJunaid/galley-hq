@@ -524,7 +524,7 @@ export function ContentStudio({
           <CardHeader>
             <CardTitle className="text-base">4. Creative direction</CardTitle>
             <CardDescription>
-              A structured visual brief for the creative team. No image is generated here.
+              The structured visual brief that drives image generation in the next step.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
