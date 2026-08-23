@@ -341,6 +341,8 @@ export type AdminContentActivity = {
     generations: number;
     failedGenerations: number;
     totalTokens: number;
+    creativesGenerated: number;
+    creativesFailed: number;
   };
   byWorkspace: Array<{
     workspaceId: string;
@@ -390,6 +392,8 @@ export const getAdminContentActivity = createServerFn({ method: "GET" })
       db.from("clients").select("id,name,company_name,workspace_id"),
     ]);
 
+    const creatives = await db.from("content_creatives").select("status");
+
     const workspaceName = new Map((workspaces.data ?? []).map((w) => [w.id, w.name]));
     const clientById = new Map((clients.data ?? []).map((c) => [c.id, c]));
 
@@ -438,6 +442,8 @@ export const getAdminContentActivity = createServerFn({ method: "GET" })
         generations: events.data?.length ?? 0,
         failedGenerations,
         totalTokens,
+        creativesGenerated: (creatives.data ?? []).filter((row) => row.status === "succeeded").length,
+        creativesFailed: (creatives.data ?? []).filter((row) => row.status === "failed").length,
       },
       byWorkspace: [...workspaceBuckets.entries()]
         .map(([workspaceId, bucket]) => ({
