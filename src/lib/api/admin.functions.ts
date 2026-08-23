@@ -333,3 +333,147 @@ export const listAdminClients = createServerFn({ method: "GET" })
       };
     });
   });
+
+export type AdminContentActivity = {
+  totals: {
+    contentItems: number;
+    readyForReview: number;
+    generations: number;
+    failedGenerations: number;
+    totalTokens: number;
+  };
+  byWorkspace: Array<{
+    workspaceId: string;
+    workspaceName: string;
+    contentItems: number;
+    generations: number;
+    failures: number;
+    lastActivityAt: string | null;
+  }>;
+  byClient: Array<{
+    clientId: string;
+    clientName: string;
+    workspaceName: string;
+    contentItems: number;
+    generations: number;
+    lastActivityAt: string | null;
+  }>;
+  recentContent: Array<{
+    id: string;
+    title: string;
+    platform: string;
+    status: string;
+    workspaceName: string;
+    clientName: string;
+    updatedAt: string;
+  }>;
+};
+
+/** Read-only, platform-wide AI content activity. Admin role is verified from the caller's session. */
+export const getAdminContentActivity = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<AdminContentActivity> => {
+    await assertAdmin(context.supabase);
+    const db = await adminDb();
+
+    const [items, events, workspaces, clients] = await Promise.all([
+      db
+        .from("content_items")
+        .select("id,title,platform,status,workspace_id,client_id,updated_at")
+        .order("updated_at", { ascending: false }),
+      db
+        .from("ai_generation_events")
+        .select("workspace_id,client_id,status,total_tokens,created_at")
+        .order("created_at", { ascending: false })
+        .limit(5000),
+      db.from("workspaces").select("id,name"),
+      db.from("clients").select("id,name,company_name,workspace_id"),
+    ]);
+
+    const workspaceName = new Map((workspaces.data ?? []).map((w) => [w.id, w.name]));
+    const clientById = new Map((clients.data ?? []).map((c) => [c.id, c]));
+
+    type Bucket = { contentItems: number; generations: number; failures: number; lastActivityAt: string | null };
+    const newBucket = (): Bucket => ({ contentItems: 0, generations: 0, failures: 0, lastActivityAt: null });
+    const workspaceBuckets = new Map<string, Bucket>();
+    const clientBuckets = new Map<string, Bucket>();
+
+    const touch = (map: Map<string, Bucket>, key: string | null, at: string | null) => {
+      if (!key) return null;
+      const bucket = map.get(key) ?? newBucket();
+      if (at && (!bucket.lastActivityAt || at > bucket.lastActivityAt)) bucket.lastActivityAt = at;
+      map.set(key, bucket);
+      return bucket;
+    };
+
+    for (const item of items.data ?? []) {
+      const ws = touch(workspaceBuckets, item.workspace_id, item.updated_at);
+      if (ws) ws.contentItems += 1;
+      const cl = touch(clientBuckets, item.client_id, item.updated_at);
+      if (cl) cl.contentItems += 1;
+    }
+
+    let totalTokens = 0;
+    let failedGenerations = 0;
+    for (const event of events.data ?? []) {
+      totalTokens += event.total_tokens ?? 0;
+      const failed = event.status !== "success";
+      if (failed) failedGenerations += 1;
+      const ws = touch(workspaceBuckets, event.workspace_id, event.created_at);
+      if (ws) {
+        ws.generations += 1;
+        if (failed) ws.failures += 1;
+      }
+      const cl = touch(clientBuckets, event.client_id, event.created_at);
+      if (cl) {
+        cl.generations += 1;
+        if (failed) cl.failures += 1;
+      }
+    }
+
+    return {
+      totals: {
+        contentItems: items.data?.length ?? 0,
+        readyForReview: (items.data ?? []).filter((item) => item.status === "ready_for_review").length,
+        generations: events.data?.length ?? 0,
+        failedGenerations,
+        totalTokens,
+      },
+      byWorkspace: [...workspaceBuckets.entries()]
+        .map(([workspaceId, bucket]) => ({
+          workspaceId,
+          workspaceName: workspaceName.get(workspaceId) ?? "Unknown",
+          contentItems: bucket.contentItems,
+          generations: bucket.generations,
+          failures: bucket.failures,
+          lastActivityAt: bucket.lastActivityAt,
+        }))
+        .sort((a, b) => b.generations - a.generations),
+      byClient: [...clientBuckets.entries()]
+        .map(([clientId, bucket]) => {
+          const client = clientById.get(clientId);
+          return {
+            clientId,
+            clientName: client?.company_name || client?.name || "Unknown client",
+            workspaceName: client ? (workspaceName.get(client.workspace_id) ?? "Unknown") : "Unknown",
+            contentItems: bucket.contentItems,
+            generations: bucket.generations,
+            lastActivityAt: bucket.lastActivityAt,
+          };
+        })
+        .sort((a, b) => b.generations - a.generations)
+        .slice(0, 25),
+      recentContent: (items.data ?? []).slice(0, 15).map((item) => {
+        const client = clientById.get(item.client_id);
+        return {
+          id: item.id,
+          title: item.title ?? "Untitled content",
+          platform: item.platform,
+          status: item.status,
+          workspaceName: workspaceName.get(item.workspace_id) ?? "Unknown",
+          clientName: client?.company_name || client?.name || "Unknown client",
+          updatedAt: item.updated_at,
+        };
+      }),
+    };
+  });

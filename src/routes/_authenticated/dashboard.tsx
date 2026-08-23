@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowRight, Building2, Images, Sparkles, Users } from "lucide-react";
+import { ArrowRight, Building2, Images, PenLine, Sparkles, Users } from "lucide-react";
 
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Badge } from "@/components/ui/badge";
@@ -33,8 +33,10 @@ const modules = [
   },
   {
     title: "Idea & caption studio",
-    description: "Generate content ideas and on-brand captions.",
-    icon: Users,
+    description: "Generate content ideas, captions and creative direction on brand.",
+    icon: PenLine,
+    to: "/content" as const,
+    cta: "Open Content Studio",
   },
   {
     title: "Creative production",
