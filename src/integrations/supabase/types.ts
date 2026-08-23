@@ -335,6 +335,100 @@ export type Database = {
           },
         ]
       }
+      content_creatives: {
+        Row: {
+          aspect_ratio: string | null
+          byte_size: number | null
+          client_id: string
+          content_item_id: string
+          created_at: string
+          created_by: string | null
+          error_code: string | null
+          error_message: string | null
+          format_id: string | null
+          id: string
+          mime_type: string | null
+          model: string | null
+          prompt: string | null
+          prompt_reference: Json
+          provider: string | null
+          status: string
+          storage_bucket: string | null
+          storage_path: string | null
+          updated_at: string
+          version: number
+          workspace_id: string
+        }
+        Insert: {
+          aspect_ratio?: string | null
+          byte_size?: number | null
+          client_id: string
+          content_item_id: string
+          created_at?: string
+          created_by?: string | null
+          error_code?: string | null
+          error_message?: string | null
+          format_id?: string | null
+          id?: string
+          mime_type?: string | null
+          model?: string | null
+          prompt?: string | null
+          prompt_reference?: Json
+          provider?: string | null
+          status?: string
+          storage_bucket?: string | null
+          storage_path?: string | null
+          updated_at?: string
+          version?: number
+          workspace_id: string
+        }
+        Update: {
+          aspect_ratio?: string | null
+          byte_size?: number | null
+          client_id?: string
+          content_item_id?: string
+          created_at?: string
+          created_by?: string | null
+          error_code?: string | null
+          error_message?: string | null
+          format_id?: string | null
+          id?: string
+          mime_type?: string | null
+          model?: string | null
+          prompt?: string | null
+          prompt_reference?: Json
+          provider?: string | null
+          status?: string
+          storage_bucket?: string | null
+          storage_path?: string | null
+          updated_at?: string
+          version?: number
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_creatives_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_creatives_content_item_id_fkey"
+            columns: ["content_item_id"]
+            isOneToOne: false
+            referencedRelation: "content_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_creatives_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       content_items: {
         Row: {
           body: string | null
