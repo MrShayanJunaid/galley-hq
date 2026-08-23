@@ -8,8 +8,8 @@ import {
   Building2,
   Images,
   Pencil,
+  PenLine,
   Trash2,
-  Users,
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -63,11 +63,6 @@ export const Route = createFileRoute("/_authenticated/clients/$clientId")({
 });
 
 const futureModules = [
-  {
-    title: "Ideas & captions",
-    description: "On-brand content ideas and captions.",
-    icon: Users,
-  },
   {
     title: "Creative production",
     description: "Visuals built from this client's brand kit.",
@@ -244,6 +239,32 @@ function ClientDetailPage() {
             </div>
           </section>
 
+          <section className="mt-10">
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+              Content Studio
+            </h2>
+            <Card className="mt-4 shadow-none transition-colors hover:border-primary/40">
+              <CardHeader>
+                <div className="flex items-start justify-between gap-3">
+                  <span className="flex size-9 items-center justify-center rounded-lg bg-secondary text-secondary-foreground">
+                    <PenLine className="size-4" />
+                  </span>
+                  <Badge>Active</Badge>
+                </div>
+                <CardTitle className="mt-3 text-base">Ideas, captions &amp; creative direction</CardTitle>
+                <CardDescription>
+                  Generate content ideas and platform-native captions using this client&apos;s saved
+                  brand intelligence, then produce a creative brief for the visual.
+                </CardDescription>
+                <Button asChild className="mt-4 w-fit">
+                  <Link to="/clients/$clientId/content" params={{ clientId: client.id }}>
+                    Open Content Studio
+                    <PenLine className="size-4" />
+                  </Link>
+                </Button>
+              </CardHeader>
+            </Card>
+          </section>
 
           <section className="mt-10">
             <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">

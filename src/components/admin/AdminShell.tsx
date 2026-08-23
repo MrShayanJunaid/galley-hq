@@ -10,6 +10,7 @@ const adminNav = [
   { label: "Users", to: "/admin/users" },
   { label: "Workspaces", to: "/admin/workspaces" },
   { label: "Clients", to: "/admin/clients" },
+  { label: "Content", to: "/admin/content" },
   { label: "Plans", to: "/admin/plans" },
   { label: "Subscriptions", to: "/admin/subscriptions" },
 ] as const;

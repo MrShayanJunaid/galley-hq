@@ -14,6 +14,82 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_generation_events: {
+        Row: {
+          client_id: string | null
+          completion_tokens: number | null
+          content_item_id: string | null
+          created_at: string
+          duration_ms: number | null
+          error_code: string | null
+          generation_type: string
+          id: string
+          model: string | null
+          prompt_tokens: number | null
+          provider: string | null
+          status: string
+          total_tokens: number | null
+          user_id: string | null
+          workspace_id: string
+        }
+        Insert: {
+          client_id?: string | null
+          completion_tokens?: number | null
+          content_item_id?: string | null
+          created_at?: string
+          duration_ms?: number | null
+          error_code?: string | null
+          generation_type: string
+          id?: string
+          model?: string | null
+          prompt_tokens?: number | null
+          provider?: string | null
+          status?: string
+          total_tokens?: number | null
+          user_id?: string | null
+          workspace_id: string
+        }
+        Update: {
+          client_id?: string | null
+          completion_tokens?: number | null
+          content_item_id?: string | null
+          created_at?: string
+          duration_ms?: number | null
+          error_code?: string | null
+          generation_type?: string
+          id?: string
+          model?: string | null
+          prompt_tokens?: number | null
+          provider?: string | null
+          status?: string
+          total_tokens?: number | null
+          user_id?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_generation_events_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_generation_events_content_item_id_fkey"
+            columns: ["content_item_id"]
+            isOneToOne: false
+            referencedRelation: "content_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_generation_events_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       brand_analysis_runs: {
         Row: {
           client_id: string
@@ -252,6 +328,87 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "clients_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      content_items: {
+        Row: {
+          body: string | null
+          client_id: string
+          content_type: string
+          created_at: string
+          created_by: string | null
+          creative_prompt: Json
+          cta: string | null
+          generation_meta: Json
+          hashtags: string[]
+          hook: string | null
+          id: string
+          idea: Json
+          objective: string
+          platform: string
+          status: string
+          title: string | null
+          topic: string | null
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          body?: string | null
+          client_id: string
+          content_type: string
+          created_at?: string
+          created_by?: string | null
+          creative_prompt?: Json
+          cta?: string | null
+          generation_meta?: Json
+          hashtags?: string[]
+          hook?: string | null
+          id?: string
+          idea?: Json
+          objective: string
+          platform: string
+          status?: string
+          title?: string | null
+          topic?: string | null
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          body?: string | null
+          client_id?: string
+          content_type?: string
+          created_at?: string
+          created_by?: string | null
+          creative_prompt?: Json
+          cta?: string | null
+          generation_meta?: Json
+          hashtags?: string[]
+          hook?: string | null
+          id?: string
+          idea?: Json
+          objective?: string
+          platform?: string
+          status?: string
+          title?: string | null
+          topic?: string | null
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_items_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_items_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
