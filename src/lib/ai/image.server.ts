@@ -77,11 +77,22 @@ export function resolveImageProvider(): Provider {
   );
 }
 
-export async function generateImage(args: {
+/** A brand reference image handed to the model as visual guidance. */
+export type ReferenceImage = {
+  /** Raw base64 (no data-URL prefix). */
+  base64: string;
+  mimeType: string;
+};
+
+export type ImageRequest = {
   prompt: string;
   negativePrompt?: string;
   aspectRatio: string;
-}): Promise<GeneratedImage> {
+  /** Brand reference images — the model must match their visual language. */
+  referenceImages?: ReferenceImage[];
+};
+
+export async function generateImage(args: ImageRequest): Promise<GeneratedImage> {
   const provider = resolveImageProvider();
   const startedAt = Date.now();
   const controller = new AbortController();
@@ -119,12 +130,20 @@ type RawImage = { bytes: Uint8Array; mimeType: string };
 /** Google Generative Language API ("Nano Banana") direct integration. */
 async function callNanoBanana(
   provider: Provider,
-  args: { prompt: string; negativePrompt?: string; aspectRatio: string },
+  args: ImageRequest,
   signal: AbortSignal,
 ): Promise<RawImage> {
   const prompt = args.negativePrompt?.trim()
     ? `${args.prompt}\n\nAvoid: ${args.negativePrompt.trim()}`
     : args.prompt;
+
+  // Reference images come first so the model reads them as style guidance for
+  // the instruction that follows.
+  const parts: Array<Record<string, unknown>> = [];
+  for (const reference of args.referenceImages ?? []) {
+    parts.push({ inlineData: { mimeType: reference.mimeType, data: reference.base64 } });
+  }
+  parts.push({ text: prompt });
 
   const response = await fetch(
     `${GOOGLE_BASE_URL}/${encodeURIComponent(provider.model)}:generateContent`,
@@ -133,7 +152,7 @@ async function callNanoBanana(
       signal,
       headers: { "content-type": "application/json", "x-goog-api-key": provider.key },
       body: JSON.stringify({
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        contents: [{ role: "user", parts }],
         generationConfig: {
           responseModalities: ["IMAGE"],
           imageConfig: { aspectRatio: args.aspectRatio },
@@ -163,8 +182,8 @@ async function callNanoBanana(
     );
   }
 
-  const parts = payload.candidates?.[0]?.content?.parts ?? [];
-  for (const part of parts) {
+  const responseParts = payload.candidates?.[0]?.content?.parts ?? [];
+  for (const part of responseParts) {
     const data = part.inlineData?.data;
     if (data) return decodeBase64(data, part.inlineData?.mimeType ?? "image/png");
   }
@@ -175,7 +194,7 @@ async function callNanoBanana(
 /** Managed Lovable AI Gateway image endpoint (same Nano Banana model family). */
 async function callLovableGateway(
   provider: Provider,
-  args: { prompt: string; negativePrompt?: string; aspectRatio: string },
+  args: ImageRequest,
   signal: AbortSignal,
 ): Promise<RawImage> {
   const prompt = [
@@ -186,18 +205,31 @@ async function callLovableGateway(
     .filter(Boolean)
     .join("\n\n");
 
+  const references = args.referenceImages ?? [];
+  const content =
+    references.length > 0
+      ? [
+          ...references.map((reference) => ({
+            type: "image_url" as const,
+            image_url: { url: `data:${reference.mimeType};base64,${reference.base64}` },
+          })),
+          { type: "text" as const, text: prompt },
+        ]
+      : prompt;
+
   const response = await fetch(LOVABLE_IMAGE_URL, {
     method: "POST",
     signal,
     headers: { "content-type": "application/json", Authorization: `Bearer ${provider.key}` },
     body: JSON.stringify({
       model: provider.model,
-      messages: [{ role: "user", content: prompt }],
+      messages: [{ role: "user", content }],
       modalities: ["image", "text"],
     }),
   });
 
   if (!response.ok) {
+
     const body = (await response.text()).slice(0, 800);
     console.error(`[image] provider=lovable status=${response.status}: ${body}`);
     throw statusToError(response.status, provider.model);

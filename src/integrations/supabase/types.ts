@@ -182,6 +182,7 @@ export type Database = {
           tone_preferences: string | null
           updated_at: string
           usp: string | null
+          visual_config: Json
           voice_config: Json
           website_analysis: Json | null
           website_analysis_error: string | null
@@ -221,6 +222,7 @@ export type Database = {
           tone_preferences?: string | null
           updated_at?: string
           usp?: string | null
+          visual_config?: Json
           voice_config?: Json
           website_analysis?: Json | null
           website_analysis_error?: string | null
@@ -260,6 +262,7 @@ export type Database = {
           tone_preferences?: string | null
           updated_at?: string
           usp?: string | null
+          visual_config?: Json
           voice_config?: Json
           website_analysis?: Json | null
           website_analysis_error?: string | null
@@ -278,6 +281,63 @@ export type Database = {
           },
           {
             foreignKeyName: "client_brand_profiles_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_brand_references: {
+        Row: {
+          byte_size: number | null
+          client_id: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          mime_type: string | null
+          storage_bucket: string
+          storage_path: string
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          byte_size?: number | null
+          client_id: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          mime_type?: string | null
+          storage_bucket?: string
+          storage_path: string
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          byte_size?: number | null
+          client_id?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          mime_type?: string | null
+          storage_bucket?: string
+          storage_path?: string
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_brand_references_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_brand_references_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
@@ -338,8 +398,10 @@ export type Database = {
       content_creatives: {
         Row: {
           aspect_ratio: string | null
+          asset_type: string
           byte_size: number | null
           client_id: string
+          concept: string | null
           content_item_id: string
           created_at: string
           created_by: string | null
@@ -352,17 +414,22 @@ export type Database = {
           prompt: string | null
           prompt_reference: Json
           provider: string | null
+          reference_paths: Json
           status: string
           storage_bucket: string | null
           storage_path: string | null
           updated_at: string
+          variant_index: number
+          variant_label: string | null
           version: number
           workspace_id: string
         }
         Insert: {
           aspect_ratio?: string | null
+          asset_type?: string
           byte_size?: number | null
           client_id: string
+          concept?: string | null
           content_item_id: string
           created_at?: string
           created_by?: string | null
@@ -375,17 +442,22 @@ export type Database = {
           prompt?: string | null
           prompt_reference?: Json
           provider?: string | null
+          reference_paths?: Json
           status?: string
           storage_bucket?: string | null
           storage_path?: string | null
           updated_at?: string
+          variant_index?: number
+          variant_label?: string | null
           version?: number
           workspace_id: string
         }
         Update: {
           aspect_ratio?: string | null
+          asset_type?: string
           byte_size?: number | null
           client_id?: string
+          concept?: string | null
           content_item_id?: string
           created_at?: string
           created_by?: string | null
@@ -398,10 +470,13 @@ export type Database = {
           prompt?: string | null
           prompt_reference?: Json
           provider?: string | null
+          reference_paths?: Json
           status?: string
           storage_bucket?: string | null
           storage_path?: string | null
           updated_at?: string
+          variant_index?: number
+          variant_label?: string | null
           version?: number
           workspace_id?: string
         }

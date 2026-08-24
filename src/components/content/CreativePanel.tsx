@@ -1,13 +1,17 @@
 import {
   AlertCircle,
+  Check,
   Download,
   ImageIcon,
+  Images,
   Loader2,
+  Palette,
   RefreshCw,
   Sparkles,
   Trash2,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "@tanstack/react-router";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { formatDateTime } from "@/components/content/content-display";
@@ -34,16 +38,26 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useContentCreatives, useDeleteCreative, useGenerateCreative } from "@/hooks/use-creatives";
-import type { CreativeAsset } from "@/lib/api/creatives";
+import { useBrandProfile } from "@/hooks/use-brand-profile";
+import { useBrandReferences } from "@/hooks/use-brand-references";
+import { useContentCreatives, useDeleteCreative, useGenerateCreativeVariant } from "@/hooks/use-creatives";
+import { groupByVariant, type CreativeAsset } from "@/lib/api/creatives";
+import { toVisualConfig, visualCompletion } from "@/lib/brand/visual-schema";
+import { CREATIVE_VARIANTS, type CreativeVariant } from "@/lib/content/creative-variants";
 import { creativeFormatById, defaultFormatFor, formatsForPlatform } from "@/lib/content/schema";
 
-type Stage = "idle" | "preparing" | "generating" | "finalizing";
+/** Per-creative generation state, surfaced individually on each card. */
+type Stage = "idle" | "preparing" | "generating" | "uploading" | "completed" | "failed";
 
-const STAGE_COPY: Record<Exclude<Stage, "idle">, string> = {
-  preparing: "Preparing the creative brief…",
-  generating: "Generating the visual…",
-  finalizing: "Finalizing and saving…",
+const STAGE_COPY: Record<Exclude<Stage, "idle" | "completed" | "failed">, string> = {
+  preparing: "Preparing brand brief…",
+  generating: "Generating…",
+  uploading: "Saving asset…",
+};
+
+type VariantState = {
+  stage: Stage;
+  error?: { message: string; retryable: boolean };
 };
 
 export function CreativePanel({
@@ -63,73 +77,136 @@ export function CreativePanel({
 }) {
   const formats = useMemo(() => formatsForPlatform(platform), [platform]);
   const [formatId, setFormatId] = useState(() => defaultFormatFor(platform));
-  const [stage, setStage] = useState<Stage>("idle");
-  const [failure, setFailure] = useState<{ message: string; retryable: boolean } | null>(null);
+  const [states, setStates] = useState<Record<number, VariantState>>({});
   const [pendingDelete, setPendingDelete] = useState<CreativeAsset | null>(null);
-  const timers = useRef<number[]>([]);
 
   const { data: assets, isLoading } = useContentCreatives(contentItemId);
-  const generateMutation = useGenerateCreative(clientId, contentItemId);
+  const { data: profile } = useBrandProfile(clientId);
+  const { data: references } = useBrandReferences(clientId);
+  const generate = useGenerateCreativeVariant(clientId, contentItemId);
   const deleteMutation = useDeleteCreative(clientId, contentItemId);
 
   useEffect(() => {
     if (!formats.some((format) => format.id === formatId)) setFormatId(defaultFormatFor(platform));
   }, [formats, formatId, platform]);
 
-  useEffect(() => () => timers.current.forEach((id) => window.clearTimeout(id)), []);
+  const grouped = useMemo(() => groupByVariant(assets ?? []), [assets]);
+  const visual = useMemo(() => toVisualConfig(profile?.visual_config), [profile?.visual_config]);
+  const visualState = useMemo(() => visualCompletion(visual), [visual]);
+  const referenceCount = references?.length ?? 0;
 
-  const successful = (assets ?? []).filter((asset) => asset.status === "succeeded");
-  const latest = successful[0] ?? null;
-  const busy = stage !== "idle";
+  const busyCount = Object.values(states).filter(
+    (state) => state.stage !== "idle" && state.stage !== "completed" && state.stage !== "failed",
+  ).length;
+  const anyBusy = busyCount > 0;
 
-  function startStages() {
-    timers.current.forEach((id) => window.clearTimeout(id));
-    setStage("preparing");
-    timers.current = [
-      window.setTimeout(() => setStage("generating"), 1200),
-    ];
+  function setStage(variantIndex: number, stage: Stage, error?: VariantState["error"]) {
+    setStates((prev) => ({ ...prev, [variantIndex]: { stage, error } }));
   }
 
-  async function handleGenerate() {
+  async function runVariant(variantIndex: number) {
     if (!contentItemId) return;
-    setFailure(null);
-    startStages();
+    setStage(variantIndex, "preparing");
+    const timer = window.setTimeout(() => setStage(variantIndex, "generating"), 1500);
     try {
-      const result = await generateMutation.mutateAsync({ formatId });
+      const result = await generate.mutateAsync({ variantIndex, formatId });
+      window.clearTimeout(timer);
       if (!result.ok) {
-        setFailure({ message: result.message, retryable: result.retryable });
-        toast.error(result.message);
-        return;
+        setStage(variantIndex, "failed", { message: result.message, retryable: result.retryable });
+        toast.error(`Creative ${variantIndex}: ${result.message}`);
+        return false;
       }
-      setStage("finalizing");
-      toast.success("Creative generated");
+      setStage(variantIndex, "uploading");
+      window.setTimeout(() => setStage(variantIndex, "completed"), 400);
+      return true;
     } catch (thrown) {
+      window.clearTimeout(timer);
       const message = (thrown as Error)?.message ?? "Creative generation failed.";
-      setFailure({ message, retryable: true });
-      toast.error(message);
-    } finally {
-      timers.current.forEach((id) => window.clearTimeout(id));
-      setStage("idle");
+      setStage(variantIndex, "failed", { message, retryable: true });
+      toast.error(`Creative ${variantIndex}: ${message}`);
+      return false;
     }
   }
 
-  const selectedFormat = creativeFormatById(formatId);
+  /** Four independent requests — one asset per variant, never a collage. */
+  async function generateAll() {
+    if (!contentItemId) return;
+    const results = await Promise.all(CREATIVE_VARIANTS.map((variant) => runVariant(variant.index)));
+    const done = results.filter(Boolean).length;
+    if (done === CREATIVE_VARIANTS.length) toast.success("4 brand creatives generated");
+    else if (done > 0) toast.warning(`${done} of 4 creatives generated — retry the failed ones`);
+  }
+
+  const anyGenerated = (assets ?? []).some((asset) => asset.status === "succeeded");
 
   return (
     <Card className="shadow-none">
       <CardHeader>
-        <CardTitle className="text-base">5. Creative visual</CardTitle>
+        <CardTitle className="text-base">5. Brand creatives</CardTitle>
         <CardDescription>
-          Generates the actual image from the creative brief and stores it with this content.
+          Four individual, brand-consistent visuals generated from this client's visual brand
+          profile, reference images and the creative brief above.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
+        {/* Brand inputs the generator will use */}
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="rounded-lg border p-3">
+            <p className="flex items-center gap-2 text-sm font-medium">
+              <Palette className="size-4" />
+              Visual brand profile
+              {visualState.isComplete ? (
+                <Badge variant="secondary" className="gap-1">
+                  <Check className="size-3" />
+                  Ready
+                </Badge>
+              ) : (
+                <Badge variant="outline">{visualState.percent}%</Badge>
+              )}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {visualState.isComplete
+                ? visual.visual_style.slice(0, 140) || "Visual rules saved for this brand."
+                : `Missing: ${visualState.missing.join(", ")}`}
+            </p>
+          </div>
+          <div className="rounded-lg border p-3">
+            <p className="flex items-center gap-2 text-sm font-medium">
+              <Images className="size-4" />
+              Reference images
+              <Badge variant={referenceCount > 0 ? "secondary" : "outline"}>{referenceCount}</Badge>
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {referenceCount > 0
+                ? "Attached to every generation for visual language, colour and lighting."
+                : "No references yet — output will rely on the written visual profile alone."}
+            </p>
+          </div>
+        </div>
+
+        {!visualState.isComplete || referenceCount === 0 ? (
+          <Alert>
+            <Palette className="size-4" />
+            <AlertTitle>Sharpen the brand visual inputs</AlertTitle>
+            <AlertDescription className="flex flex-col items-start gap-2">
+              <span>
+                Brand-specific creatives need the visual brand profile and a few reference images.
+              </span>
+              <Button asChild size="sm" variant="outline">
+                <Link to="/clients/$clientId/brand" params={{ clientId }}>
+                  Open visual identity
+                </Link>
+              </Button>
+            </AlertDescription>
+          </Alert>
+        ) : null}
+
         {!hasCreativeBrief ? (
           <Alert>
             <Sparkles className="size-4" />
             <AlertTitle>Creative direction needed</AlertTitle>
             <AlertDescription>
-              Generate the creative direction above first — it is the instruction for the image.
+              Generate the creative direction above first — it is the instruction for the visuals.
             </AlertDescription>
           </Alert>
         ) : null}
@@ -139,7 +216,7 @@ export function CreativePanel({
             <ImageIcon className="size-4" />
             <AlertTitle>Save this content first</AlertTitle>
             <AlertDescription className="flex flex-col items-start gap-2">
-              <span>Visuals are stored against a saved content record so they survive a refresh.</span>
+              <span>Creatives are stored against a saved content record so they survive a refresh.</span>
               <Button size="sm" variant="outline" onClick={onSaveFirst} disabled={saving}>
                 {saving ? <Loader2 className="size-4 animate-spin" /> : null}
                 Save content &amp; continue
@@ -148,26 +225,10 @@ export function CreativePanel({
           </Alert>
         ) : null}
 
-        {failure ? (
-          <Alert variant="destructive">
-            <AlertCircle className="size-4" />
-            <AlertTitle>Creative generation failed</AlertTitle>
-            <AlertDescription className="flex flex-col items-start gap-2">
-              <span>{failure.message}</span>
-              {failure.retryable ? (
-                <Button size="sm" variant="outline" onClick={() => void handleGenerate()}>
-                  <RefreshCw className="size-4" />
-                  Try again
-                </Button>
-              ) : null}
-            </AlertDescription>
-          </Alert>
-        ) : null}
-
         <div className="grid gap-4 sm:grid-cols-[minmax(0,260px)_auto] sm:items-end">
           <div className="space-y-1.5">
-            <Label htmlFor="creative-format">Format</Label>
-            <Select value={formatId} onValueChange={setFormatId} disabled={busy}>
+            <Label htmlFor="creative-format">Platform format</Label>
+            <Select value={formatId} onValueChange={setFormatId} disabled={anyBusy}>
               <SelectTrigger id="creative-format">
                 <SelectValue />
               </SelectTrigger>
@@ -181,96 +242,42 @@ export function CreativePanel({
             </Select>
           </div>
           <Button
-            onClick={() => void handleGenerate()}
-            disabled={busy || !contentItemId || !hasCreativeBrief}
+            onClick={() => void generateAll()}
+            disabled={anyBusy || !contentItemId || !hasCreativeBrief}
           >
-            {busy ? (
+            {anyBusy ? (
               <>
                 <Loader2 className="size-4 animate-spin" />
-                {STAGE_COPY[stage as Exclude<Stage, "idle">]}
+                Generating {busyCount} of 4…
               </>
             ) : (
               <>
                 <ImageIcon className="size-4" />
-                {latest ? "Regenerate visual" : "Generate creative"}
+                {anyGenerated ? "Generate a new set of 4" : "Generate 4 creatives"}
               </>
             )}
           </Button>
         </div>
 
-        {busy ? (
-          <div
-            className="w-full max-w-md animate-pulse rounded-xl border bg-muted"
-            style={{ aspectRatio: selectedFormat?.cssRatio ?? "1 / 1" }}
-          />
-        ) : isLoading && contentItemId ? (
-          <Skeleton className="h-64 w-full max-w-md rounded-xl" />
-        ) : latest ? (
-          <div className="space-y-3">
-            <figure className="w-full max-w-md overflow-hidden rounded-xl border bg-muted">
-              <img
-                src={latest.url ?? ""}
-                alt={`Generated creative version ${latest.version}`}
-                className="block h-auto w-full"
-                style={{ aspectRatio: creativeFormatById(latest.formatId)?.cssRatio ?? undefined }}
-                loading="lazy"
-              />
-            </figure>
-            <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-              <Badge variant="secondary">v{latest.version}</Badge>
-              {latest.aspectRatio ? <Badge variant="outline">{latest.aspectRatio}</Badge> : null}
-              <span>{formatDateTime(latest.createdAt)}</span>
-              {latest.url ? (
-                <Button asChild size="sm" variant="outline">
-                  <a href={latest.url} download target="_blank" rel="noreferrer">
-                    <Download className="size-4" />
-                    Download
-                  </a>
-                </Button>
-              ) : null}
-            </div>
-          </div>
-        ) : null}
-
-        {successful.length > 1 ? (
-          <div className="space-y-2">
-            <p className="text-sm font-medium">Previous versions</p>
-            <div className="flex flex-wrap gap-3">
-              {successful.slice(1).map((asset) => (
-                <div key={asset.id} className="w-32 space-y-1">
-                  <div className="overflow-hidden rounded-lg border bg-muted">
-                    {asset.url ? (
-                      <img
-                        src={asset.url}
-                        alt={`Creative version ${asset.version}`}
-                        className="block h-auto w-full"
-                        loading="lazy"
-                      />
-                    ) : (
-                      <div className="h-24" />
-                    )}
-                  </div>
-                  <div className="flex items-center justify-between gap-1">
-                    <span className="text-xs text-muted-foreground">v{asset.version}</span>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-7 px-1.5 text-destructive"
-                      onClick={() => setPendingDelete(asset)}
-                      aria-label={`Delete version ${asset.version}`}
-                    >
-                      <Trash2 className="size-3.5" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        ) : null}
+        <div className="grid gap-4 md:grid-cols-2">
+          {CREATIVE_VARIANTS.map((variant) => (
+            <VariantCard
+              key={variant.index}
+              variant={variant}
+              versions={grouped.get(variant.index) ?? []}
+              state={states[variant.index] ?? { stage: "idle" }}
+              loading={isLoading && Boolean(contentItemId)}
+              disabled={!contentItemId || !hasCreativeBrief}
+              fallbackRatio={creativeFormatById(formatId)?.cssRatio ?? "1 / 1"}
+              onGenerate={() => void runVariant(variant.index)}
+              onDelete={(asset) => setPendingDelete(asset)}
+            />
+          ))}
+        </div>
 
         {(assets ?? []).some((asset) => asset.status === "failed") ? (
           <p className="text-xs text-muted-foreground">
-            Failed attempts are kept in the record for troubleshooting and do not affect saved visuals.
+            Failed attempts are kept for troubleshooting and never replace a stored creative.
           </p>
         ) : null}
       </CardContent>
@@ -280,7 +287,8 @@ export function CreativePanel({
           <AlertDialogHeader>
             <AlertDialogTitle>Delete this version?</AlertDialogTitle>
             <AlertDialogDescription>
-              Version {pendingDelete?.version} and its stored image will be permanently removed.
+              Creative {pendingDelete?.variantIndex} v{pendingDelete?.version} and its stored image
+              will be permanently removed. Other creatives are unaffected.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -306,5 +314,157 @@ export function CreativePanel({
         </AlertDialogContent>
       </AlertDialog>
     </Card>
+  );
+}
+
+function VariantCard({
+  variant,
+  versions,
+  state,
+  loading,
+  disabled,
+  fallbackRatio,
+  onGenerate,
+  onDelete,
+}: {
+  variant: CreativeVariant;
+  versions: CreativeAsset[];
+  state: VariantState;
+  loading: boolean;
+  disabled: boolean;
+  fallbackRatio: string;
+  onGenerate: () => void;
+  onDelete: (asset: CreativeAsset) => void;
+}) {
+  const successful = versions.filter((asset) => asset.status === "succeeded");
+  const latest = successful[0] ?? null;
+  const busy = state.stage !== "idle" && state.stage !== "completed" && state.stage !== "failed";
+  const ratio = creativeFormatById(latest?.formatId)?.cssRatio ?? fallbackRatio;
+
+  return (
+    <div className="space-y-3 rounded-xl border p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-medium">
+            Creative {variant.index} — {variant.label}
+          </p>
+          <p className="text-xs text-muted-foreground">{variant.summary}</p>
+        </div>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={onGenerate}
+          disabled={disabled || busy}
+          aria-label={`Generate creative ${variant.index}`}
+        >
+          {busy ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
+          {latest ? "Regenerate" : "Generate"}
+        </Button>
+      </div>
+
+      {busy ? (
+        <div className="space-y-2">
+          <div className="w-full animate-pulse rounded-lg border bg-muted" style={{ aspectRatio: ratio }} />
+          <p className="text-xs text-muted-foreground">
+            {STAGE_COPY[state.stage as Exclude<Stage, "idle" | "completed" | "failed">]}
+          </p>
+        </div>
+      ) : loading && versions.length === 0 ? (
+        <Skeleton className="h-48 w-full rounded-lg" />
+      ) : latest ? (
+        <div className="space-y-2">
+          <figure className="overflow-hidden rounded-lg border bg-muted">
+            <img
+              src={latest.url ?? ""}
+              alt={`${variant.label} creative, version ${latest.version}`}
+              className="block h-auto w-full"
+              style={{ aspectRatio: ratio }}
+              loading="lazy"
+            />
+          </figure>
+          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            <Badge variant="secondary">v{latest.version}</Badge>
+            {latest.aspectRatio ? <Badge variant="outline">{latest.aspectRatio}</Badge> : null}
+            <span>{formatDateTime(latest.createdAt)}</span>
+            {latest.url ? (
+              <Button asChild size="sm" variant="ghost" className="h-7 px-2">
+                <a href={latest.url} download target="_blank" rel="noreferrer">
+                  <Download className="size-3.5" />
+                  Download
+                </a>
+              </Button>
+            ) : null}
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 px-2 text-destructive"
+              onClick={() => onDelete(latest)}
+              aria-label={`Delete creative ${variant.index} version ${latest.version}`}
+            >
+              <Trash2 className="size-3.5" />
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div
+          className="flex items-center justify-center rounded-lg border border-dashed text-xs text-muted-foreground"
+          style={{ aspectRatio: ratio }}
+        >
+          Not generated yet
+        </div>
+      )}
+
+      {state.stage === "failed" && state.error ? (
+        <Alert variant="destructive">
+          <AlertCircle className="size-4" />
+          <AlertTitle>Generation failed</AlertTitle>
+          <AlertDescription className="flex flex-col items-start gap-2">
+            <span>{state.error.message}</span>
+            {state.error.retryable ? (
+              <Button size="sm" variant="outline" onClick={onGenerate}>
+                <RefreshCw className="size-4" />
+                Retry creative {variant.index}
+              </Button>
+            ) : null}
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
+      {successful.length > 1 ? (
+        <div className="space-y-1.5">
+          <p className="text-xs font-medium">Version history</p>
+          <div className="flex flex-wrap gap-2">
+            {successful.slice(1).map((asset) => (
+              <div key={asset.id} className="w-20 space-y-1">
+                <div className="overflow-hidden rounded-md border bg-muted">
+                  {asset.url ? (
+                    <img
+                      src={asset.url}
+                      alt={`${variant.label} version ${asset.version}`}
+                      className="block h-auto w-full"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="h-16" />
+                  )}
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] text-muted-foreground">v{asset.version}</span>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 px-1 text-destructive"
+                    onClick={() => onDelete(asset)}
+                    aria-label={`Delete version ${asset.version}`}
+                  >
+                    <Trash2 className="size-3" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </div>
   );
 }
