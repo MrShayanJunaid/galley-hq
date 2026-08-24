@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
+import type { CreativeAssetType } from "@/lib/content/creative-variants";
 
 export type CreativeRow = Database["public"]["Tables"]["content_creatives"]["Row"];
 
@@ -16,6 +17,10 @@ export type CreativeAsset = {
   clientId: string;
   workspaceId: string;
   version: number;
+  variantIndex: number;
+  variantLabel: string | null;
+  concept: string | null;
+  assetType: CreativeAssetType;
   status: "pending" | "succeeded" | "failed";
   provider: string | null;
   model: string | null;
@@ -26,6 +31,7 @@ export type CreativeAsset = {
   mimeType: string | null;
   byteSize: number | null;
   errorMessage: string | null;
+  referencePaths: string[];
   createdAt: string;
   /** Short-lived signed URL; the bucket is private and workspace-scoped. */
   url: string | null;
@@ -38,6 +44,10 @@ function mapRow(row: CreativeRow, url: string | null): CreativeAsset {
     clientId: row.client_id,
     workspaceId: row.workspace_id,
     version: row.version,
+    variantIndex: row.variant_index ?? 1,
+    variantLabel: row.variant_label,
+    concept: row.concept,
+    assetType: (row.asset_type as CreativeAssetType) ?? "image",
     status: (row.status as CreativeAsset["status"]) ?? "pending",
     provider: row.provider,
     model: row.model,
@@ -48,6 +58,9 @@ function mapRow(row: CreativeRow, url: string | null): CreativeAsset {
     mimeType: row.mime_type,
     byteSize: row.byte_size,
     errorMessage: row.error_message,
+    referencePaths: Array.isArray(row.reference_paths)
+      ? (row.reference_paths as unknown[]).filter((entry): entry is string => typeof entry === "string")
+      : [],
     createdAt: row.created_at,
     url,
   };
@@ -73,12 +86,16 @@ async function withSignedUrls(rows: CreativeRow[]): Promise<CreativeAsset[]> {
   return rows.map((row) => mapRow(row, row.storage_path ? urlByPath.get(row.storage_path) ?? null : null));
 }
 
-/** All generated versions for one content item, newest first. RLS scopes by workspace. */
+/**
+ * Every generated version for one content item, newest first within each
+ * variant. The panel groups these into the four creative slots.
+ */
 export async function fetchCreativesForContentItem(contentItemId: string): Promise<CreativeAsset[]> {
   const { data, error } = await supabase
     .from("content_creatives")
     .select("*")
     .eq("content_item_id", contentItemId)
+    .order("variant_index", { ascending: true })
     .order("version", { ascending: false });
 
   if (error) throw error;
@@ -94,7 +111,7 @@ export async function fetchClientCreativeThumbnails(
     .select("*")
     .eq("client_id", clientId)
     .eq("status", "succeeded")
-    .order("version", { ascending: false });
+    .order("created_at", { ascending: false });
 
   if (error) throw error;
 
@@ -108,4 +125,18 @@ export async function fetchClientCreativeThumbnails(
 
   const assets = await withSignedUrls(newestPerItem);
   return Object.fromEntries(assets.map((asset) => [asset.contentItemId, asset]));
+}
+
+/** Groups assets into one slot per creative variant, newest version first. */
+export function groupByVariant(assets: CreativeAsset[]): Map<number, CreativeAsset[]> {
+  const grouped = new Map<number, CreativeAsset[]>();
+  for (const asset of assets) {
+    const list = grouped.get(asset.variantIndex) ?? [];
+    list.push(asset);
+    grouped.set(asset.variantIndex, list);
+  }
+  for (const list of grouped.values()) {
+    list.sort((a, b) => b.version - a.version);
+  }
+  return grouped;
 }

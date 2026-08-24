@@ -5,27 +5,44 @@ import type { CreativeAssetRecord, GenerateCreativeResult } from "@/lib/api/crea
 
 export type { CreativeAssetRecord, GenerateCreativeResult };
 
-/** Generates a visual for a saved content item and stores it in the creatives bucket. */
-export const generateCreativeImage = createServerFn({ method: "POST" })
+/**
+ * Generates ONE creative variant (1–4) for a saved content item and stores it
+ * in the private creatives bucket. The client fires one call per variant so the
+ * four creatives are independent assets with independent status and versions.
+ */
+export const generateCreativeVariantImage = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { contentItemId: string; formatId?: string | null; promptOverride?: string | null }) => {
-    if (!input?.contentItemId) throw new Error("contentItemId is required");
-    return {
-      contentItemId: String(input.contentItemId),
-      formatId: input.formatId ? String(input.formatId) : null,
-      promptOverride:
-        typeof input.promptOverride === "string" ? input.promptOverride.slice(0, 6000) : null,
-    };
-  })
+  .inputValidator(
+    (input: {
+      contentItemId: string;
+      variantIndex: number;
+      formatId?: string | null;
+      promptOverride?: string | null;
+    }) => {
+      if (!input?.contentItemId) throw new Error("contentItemId is required");
+      const variantIndex = Number(input.variantIndex);
+      if (!Number.isInteger(variantIndex) || variantIndex < 1 || variantIndex > 4) {
+        throw new Error("variantIndex must be 1, 2, 3 or 4");
+      }
+      return {
+        contentItemId: String(input.contentItemId),
+        variantIndex,
+        formatId: input.formatId ? String(input.formatId) : null,
+        promptOverride:
+          typeof input.promptOverride === "string" ? input.promptOverride.slice(0, 8000) : null,
+      };
+    },
+  )
   .handler(async ({ data, context }): Promise<GenerateCreativeResult> => {
     const creative = await import("@/lib/api/creative-image.server");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    return creative.generateAndStoreCreative({
+    return creative.generateCreativeVariant({
       supabase: context.supabase,
       admin: supabaseAdmin,
       userId: context.userId,
       contentItemId: data.contentItemId,
+      variantIndex: data.variantIndex,
       formatId: data.formatId,
       promptOverride: data.promptOverride,
     });

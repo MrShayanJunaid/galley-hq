@@ -7,7 +7,10 @@ import {
   fetchCreativesForContentItem,
 } from "@/lib/api/creatives";
 import { contentKeys } from "@/lib/api/content-items";
-import { deleteCreativeImage, generateCreativeImage } from "@/lib/api/creatives.functions";
+import {
+  deleteCreativeImage,
+  generateCreativeVariantImage,
+} from "@/lib/api/creatives.functions";
 
 export function useContentCreatives(contentItemId: string | null) {
   return useQuery({
@@ -25,16 +28,24 @@ export function useClientCreativeThumbnails(clientId: string) {
   });
 }
 
-export function useGenerateCreative(clientId: string, contentItemId: string | null) {
-  const generate = useServerFn(generateCreativeImage);
+/**
+ * Generates a single creative variant. Each variant is its own request, so the
+ * four creatives succeed, fail and retry independently.
+ */
+export function useGenerateCreativeVariant(clientId: string, contentItemId: string | null) {
+  const generate = useServerFn(generateCreativeVariantImage);
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (args: { formatId?: string | null }) =>
+    mutationFn: (args: { variantIndex: number; formatId?: string | null }) =>
       generate({
-        data: { contentItemId: contentItemId as string, formatId: args.formatId ?? null },
+        data: {
+          contentItemId: contentItemId as string,
+          variantIndex: args.variantIndex,
+          formatId: args.formatId ?? null,
+        },
       }),
-    onSuccess: () => {
+    onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: creativeKeys.list(contentItemId ?? "none") });
       void queryClient.invalidateQueries({ queryKey: creativeKeys.latestForClient(clientId) });
       void queryClient.invalidateQueries({ queryKey: contentKeys.list(clientId) });

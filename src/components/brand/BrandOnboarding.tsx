@@ -5,8 +5,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { CompletionMeter, OnboardingStatusBadge, formatDateTime } from "@/components/brand/brand-status";
+import { BrandReferenceManager } from "@/components/brand/BrandReferenceManager";
+import { BrandVisualProfile } from "@/components/brand/BrandVisualProfile";
 import { SuggestionReview } from "@/components/brand/SuggestionReview";
 import { WebsiteAnalysisPanel, type AnalysisPhase } from "@/components/brand/WebsiteAnalysisPanel";
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -289,6 +292,8 @@ export function BrandOnboarding({
             </TabsTrigger>
           ))}
           <TabsTrigger value="voice">Brand voice</TabsTrigger>
+          <TabsTrigger value="visual">Visual identity</TabsTrigger>
+
         </TabsList>
 
         {BRAND_SECTIONS.map((section) => (
@@ -379,7 +384,22 @@ export function BrandOnboarding({
             </CardContent>
           </Card>
         </TabsContent>
+
+        <TabsContent value="visual" className="space-y-6">
+          <BrandVisualProfile
+            clientId={clientId}
+            workspaceId={workspaceId}
+            profile={profile as BrandProfile | null}
+            disabled={disabled}
+          />
+          <BrandReferenceManager
+            clientId={clientId}
+            workspaceId={workspaceId}
+            disabled={disabled}
+          />
+        </TabsContent>
       </Tabs>
+
     </div>
   );
 }
