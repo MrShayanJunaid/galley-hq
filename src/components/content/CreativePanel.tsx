@@ -57,7 +57,7 @@ const STAGE_COPY: Record<Exclude<Stage, "idle" | "completed" | "failed">, string
 
 type VariantState = {
   stage: Stage;
-  error?: { message: string; retryable: boolean };
+  error?: { message: string; retryable: boolean } | undefined;
 };
 
 export function CreativePanel({

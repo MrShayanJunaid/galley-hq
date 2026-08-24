@@ -31,7 +31,7 @@ export function BrandVisualProfile({
   clientId: string;
   workspaceId: string | undefined;
   profile: BrandProfile | null | undefined;
-  disabled?: boolean;
+  disabled?: boolean | undefined;
 }) {
   const queryClient = useQueryClient();
   const [values, setValues] = useState<BrandVisualConfig>(() => toVisualConfig(profile?.visual_config));

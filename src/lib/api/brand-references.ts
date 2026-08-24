@@ -71,7 +71,7 @@ export type UploadReferenceArgs = {
   clientId: string;
   workspaceId: string;
   file: File;
-  description?: string;
+  description?: string | undefined;
   /** When set, the stored file and row are replaced instead of added. */
   replaceId?: string;
 };

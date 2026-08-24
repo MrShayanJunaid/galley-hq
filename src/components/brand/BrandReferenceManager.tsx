@@ -37,7 +37,7 @@ export function BrandReferenceManager({
 }: {
   clientId: string;
   workspaceId: string | undefined;
-  disabled?: boolean;
+  disabled?: boolean | undefined;
 }) {
   const { data: references, isLoading } = useBrandReferences(clientId);
   const upload = useUploadBrandReference(clientId);
@@ -59,8 +59,7 @@ export function BrandReferenceManager({
           clientId,
           workspaceId,
           file,
-          description: replaceId ? undefined : newDescription,
-          replaceId,
+          ...(replaceId ? { replaceId } : { description: newDescription }),
         });
       } catch (error) {
         toast.error((error as Error)?.message ?? "Couldn't upload this reference image.");
