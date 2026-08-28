@@ -80,6 +80,43 @@ export async function chatJson(args: {
   timeoutMs?: number;
   temperature?: number;
 }): Promise<AiJsonResult> {
+  return chatJsonRequest({
+    system: args.system,
+    content: args.user,
+    ...(args.timeoutMs === undefined ? {} : { timeoutMs: args.timeoutMs }),
+  });
+}
+
+/**
+ * Same JSON contract, but with real multimodal image inputs attached to the
+ * user message. Used to visually analyse a brand's reference creatives.
+ */
+export async function chatJsonVision(args: {
+  system: string;
+  text: string;
+  images: Array<{ base64: string; mimeType: string }>;
+  timeoutMs?: number;
+}): Promise<AiJsonResult> {
+  const content = [
+    { type: "text" as const, text: args.text },
+    ...args.images.map((image) => ({
+      type: "image_url" as const,
+      image_url: { url: `data:${image.mimeType};base64,${image.base64}` },
+    })),
+  ];
+  return chatJsonRequest({
+    system: args.system,
+    content,
+    ...(args.timeoutMs === undefined ? {} : { timeoutMs: args.timeoutMs }),
+  });
+}
+
+async function chatJsonRequest(args: {
+  system: string;
+  content: unknown;
+  timeoutMs?: number;
+}): Promise<AiJsonResult> {
+
   const provider = resolveAiProvider();
   const startedAt = Date.now();
   const controller = new AbortController();
@@ -103,7 +140,7 @@ export async function chatJson(args: {
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: args.system },
-          { role: "user", content: args.user },
+          { role: "user", content: args.content },
         ],
       }),
     });

@@ -7,6 +7,8 @@ import { toast } from "sonner";
 import { CompletionMeter, OnboardingStatusBadge, formatDateTime } from "@/components/brand/brand-status";
 import { BrandReferenceManager } from "@/components/brand/BrandReferenceManager";
 import { BrandVisualProfile } from "@/components/brand/BrandVisualProfile";
+import { ReferenceDesignLanguage } from "@/components/brand/ReferenceDesignLanguage";
+import { useBrandReferences } from "@/hooks/use-brand-references";
 import { SuggestionReview } from "@/components/brand/SuggestionReview";
 import { WebsiteAnalysisPanel, type AnalysisPhase } from "@/components/brand/WebsiteAnalysisPanel";
 
@@ -55,7 +57,10 @@ export function BrandOnboarding({
   const queryClient = useQueryClient();
   const { data: profile, isLoading } = useBrandProfile(clientId);
   const { data: runs } = useBrandAnalysisRuns(clientId);
+  const { data: referenceList } = useBrandReferences(clientId);
+  const referenceCount = (referenceList ?? []).length;
   const analyze = useServerFn(analyzeClientWebsite);
+
 
   const [values, setValues] = useState<BrandFieldValues>(() => profileToValues(null));
   const [suggestions, setSuggestions] = useState<BrandSuggestions>({ values: {} });
@@ -397,6 +402,13 @@ export function BrandOnboarding({
             workspaceId={workspaceId}
             disabled={disabled}
           />
+          <ReferenceDesignLanguage
+            clientId={clientId}
+            profileRow={profile as unknown as Record<string, unknown> | null}
+            referenceCount={referenceCount}
+            disabled={disabled}
+          />
+
         </TabsContent>
       </Tabs>
 

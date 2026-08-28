@@ -1,10 +1,10 @@
 /**
- * The four creative variations GalleyHQ generates for every content item.
- * Each one is a separate image asset — never a collage or a grid — and each
- * carries its own visual brief so the four outputs are meaningfully different.
+ * The four creative directions GalleyHQ produces for a content item.
  *
- * `assetType` is carried through the pipeline so future video creatives slot in
- * without changing the schema.
+ * Each is a *designed* social media creative — a complete marketing layout with
+ * headline, supporting copy, CTA and brand furniture — not a bare photograph
+ * with text dropped on top. The four are deliberately different compositions
+ * that still read as the same brand's design system.
  */
 
 export type CreativeAssetType = "image" | "video";
@@ -14,42 +14,42 @@ export type CreativeVariant = {
   id: string;
   label: string;
   summary: string;
-  /** Direction handed to the prompt engine for this variant only. */
+  /** Layout/composition direction handed to the prompt engine. */
   direction: string;
 };
 
 export const CREATIVE_VARIANTS: CreativeVariant[] = [
   {
     index: 1,
-    id: "product_focused",
-    label: "Product-focused",
-    summary: "The offering itself, shot as the hero.",
+    id: "editorial_headline",
+    label: "Editorial headline layout",
+    summary: "Big typographic headline over an editorial brand image.",
     direction:
-      "Put the brand's actual product or service artefact at the centre of the frame as the hero subject. Real materials, real detail, close or medium crop. No people dominating the frame. The viewer should understand what is being sold from the image alone.",
+      "Design an editorial-poster layout: one strong photographic or illustrated brand image plus a large, confidently set headline occupying a clear typographic zone (top band, lower third or side column — whichever the reference layouts favour). Supporting line and CTA sit in a deliberate secondary hierarchy. Logo placed exactly where the references place it. Generous, intentional negative space; the type must never float randomly over the subject's face or focal point.",
   },
   {
     index: 2,
-    id: "human_story",
-    label: "Human / story-driven",
-    summary: "A real person in a true-to-brand moment.",
+    id: "product_ui_focus",
+    label: "Product / offer composition",
+    summary: "The product, service artefact or UI presented as the hero.",
     direction:
-      "Show one authentic person from the brand's actual audience in a specific, believable moment connected to the brand. Candid, documentary framing with natural gesture and expression. Absolutely no stock-photo poses, no generic office worker at a laptop, no forced smiling handshake.",
+      "Design a product/offer layout: the brand's actual product, service artefact, packaging or interface is the hero, presented with the reference set's treatment (cut-out on colour block, in-context shot, device frame, floating detail callouts). Only depict a screen or interface if a reference creative or brand asset actually shows one — otherwise use the physical product, packaging, service moment or a symbolic material object instead of inventing a fake dashboard. Headline and CTA anchor around it in a clean grid. Use colour blocking or shapes drawn from the brand palette to separate the type zone from the product zone.",
   },
   {
     index: 3,
     id: "problem_solution",
-    label: "Problem / solution",
-    summary: "The tension the brand resolves, made visual.",
+    label: "Problem → solution layout",
+    summary: "Split or contrasted composition resolving a real tension.",
     direction:
-      "Visualise the customer's problem and the brand's resolution in one frame — through contrast, before/after within a single composition, or a visual metaphor grounded in the brand's real world. Concrete objects and situations, not charts, arrows or infographic clichés.",
+      "Design a single-frame problem→solution composition: one deliberate split, diagonal, or foreground/background contrast that shows the tension and the brand's resolution. This is one unified designed layout with one shared type system — never two separate images pasted side by side, never a before/after collage of framed photos. Headline states the shift; CTA closes it.",
   },
   {
     index: 4,
-    id: "conceptual",
-    label: "Conceptual",
-    summary: "A bold graphic idea built from brand cues.",
+    id: "minimal_premium",
+    label: "Minimal premium composition",
+    summary: "Restrained, high-end brand statement.",
     direction:
-      "Take a bolder, more art-directed conceptual approach: unexpected scale, arrangement, texture or perspective built strictly from the brand's own colour, material and mood language. Editorial and striking, still unmistakably this brand. No abstract gradient wallpaper, no random 3D shapes.",
+      "Design a minimal, premium brand statement: very few elements, dominant brand colour or material field, one small focal visual, short high-impact headline, understated CTA and logo. Precision spacing, refined typographic detail, strong figure-ground contrast. Restraint is the point — no decorative clutter, no stock flourishes.",
   },
 ];
 
@@ -64,12 +64,14 @@ export function variantLabel(index: number | null | undefined): string {
 
 /** Global "never produce this" list applied to every generation. */
 export const GENERIC_OUTPUT_BANLIST = [
-  "generic stock-photo businesswoman or businessman at a laptop",
+  "generic stock-photo businessperson at a laptop",
   "anonymous corporate office, meeting room or boardroom scene",
-  "fake SaaS dashboard, UI mockup or screen full of invented charts",
-  "random purple/blue gradient background or abstract gradient blobs",
-  "collage, grid, split panels, multiple framed images or contact sheet",
-  "watermarks, provider logos, other brands' logos",
-  "gibberish or misspelled lettering",
-  "generic handshake, thumbs-up, or lightbulb 'idea' metaphors",
+  "invented SaaS dashboard, fake charts, fake statistics or fake pricing",
+  "random purple/blue gradient background, abstract gradient blobs or generic 3D shapes",
+  "collage, grid, contact sheet, mockup sheet, multiple framed images or device-mockup showcase",
+  "watermarks, provider logos, stock-site logos or any other brand's logo",
+  "gibberish, misspelled, duplicated or cut-off lettering",
+  "handshake, thumbs-up or lightbulb 'idea' cliché",
+  "text floating without a layout, centred caption plates, or a photo with a plain text box slapped on top",
+  "copying a reference image, reproducing its exact subject, or embedding a reference inside the output",
 ].join("; ");
