@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireVerifiedSupabaseAuth } from "@/integrations/supabase/verified-auth";
 import { normalizeWebsiteUrl } from "@/lib/brand/schema";
 
 export type WebsiteInsights = {
@@ -43,7 +43,7 @@ export type AnalyzeWebsiteResult =
  * Results are stored as *suggestions* — never written over the saved profile.
  */
 export const analyzeClientWebsite = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireVerifiedSupabaseAuth])
   .inputValidator((input: AnalyzeWebsiteInput) => {
     if (!input?.clientId) throw new Error("clientId is required");
     return { clientId: String(input.clientId), websiteUrl: String(input.websiteUrl ?? "") };

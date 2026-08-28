@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireVerifiedSupabaseAuth } from "@/integrations/supabase/verified-auth";
 import type { ReferenceVisualProfile } from "@/lib/brand/reference-profile";
 
 export type AnalyzeReferencesResult =
@@ -19,7 +19,7 @@ export type AnalyzeReferencesResult =
  * hand-written visual profile are left untouched.
  */
 export const analyzeBrandReferences = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireVerifiedSupabaseAuth])
   .inputValidator((input: { clientId: string }) => {
     if (!input?.clientId) throw new Error("clientId is required");
     return { clientId: String(input.clientId) };

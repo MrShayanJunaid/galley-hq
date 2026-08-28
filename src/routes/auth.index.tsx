@@ -11,6 +11,13 @@ import { useSession } from "@/hooks/use-session";
 import { lovable } from "@/integrations/lovable";
 import { supabase } from "@/integrations/supabase/client";
 import { EMAIL_CONFIRM_PATH, authAppOrigin, authRedirectUrl } from "@/lib/auth-urls";
+import {
+  UNVERIFIED_MESSAGE,
+  isEmailVerified,
+  resendErrorMessage,
+  resendVerificationEmail,
+} from "@/lib/auth-verification";
+
 
 export const Route = createFileRoute("/auth/")({
   head: () => ({
@@ -30,13 +37,13 @@ export const Route = createFileRoute("/auth/")({
 
 function AuthPage() {
   const navigate = useNavigate();
-  const { isAuthenticated, isLoading } = useSession();
+  const { user, isAuthenticated, isLoading } = useSession();
 
   useEffect(() => {
-    if (!isLoading && isAuthenticated) {
-      navigate({ to: "/dashboard", replace: true });
-    }
-  }, [isAuthenticated, isLoading, navigate]);
+    if (isLoading || !isAuthenticated) return;
+    navigate({ to: isEmailVerified(user) ? "/dashboard" : "/verify-email", replace: true });
+  }, [isAuthenticated, isLoading, navigate, user]);
+
 
   return (
     <div className="flex min-h-screen">
@@ -127,19 +134,52 @@ function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isPending, setIsPending] = useState(false);
+  const [isResending, setIsResending] = useState(false);
+  const [unverifiedEmail, setUnverifiedEmail] = useState<string | null>(null);
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     setIsPending(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    setIsPending(false);
+    setUnverifiedEmail(null);
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
+      setIsPending(false);
+      const text = error.message.toLowerCase();
+      if (text.includes("not confirmed") || text.includes("email not verified")) {
+        setUnverifiedEmail(email);
+        toast.error(UNVERIFIED_MESSAGE);
+        return;
+      }
       toast.error(error.message);
       return;
     }
+
+    // Belt and braces: an unverified account must never hold an app session.
+    if (!isEmailVerified(data.user)) {
+      await supabase.auth.signOut();
+      setIsPending(false);
+      setUnverifiedEmail(email);
+      toast.error(UNVERIFIED_MESSAGE);
+      return;
+    }
+
+    setIsPending(false);
     navigate({ to: "/dashboard", replace: true });
   }
+
+  async function handleResend() {
+    if (!unverifiedEmail) return;
+    setIsResending(true);
+    const { error } = await resendVerificationEmail(unverifiedEmail);
+    setIsResending(false);
+    if (error) {
+      toast.error(resendErrorMessage(error.message));
+      return;
+    }
+    toast.success("Verification email sent. Check your inbox.");
+  }
+
 
   return (
     <Card className="mt-4">
@@ -150,7 +190,23 @@ function LoginForm() {
       <CardContent>
         <GoogleButton label="Continue with Google" />
         <Divider />
+        {unverifiedEmail ? (
+          <div className="mb-4 space-y-2 rounded-md border border-border bg-secondary/40 p-3">
+            <p className="text-sm text-foreground">{UNVERIFIED_MESSAGE}</p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="w-full"
+              disabled={isResending}
+              onClick={handleResend}
+            >
+              {isResending ? "Sending…" : "Resend verification email"}
+            </Button>
+          </div>
+        ) : null}
         <form onSubmit={handleSubmit} className="space-y-4">
+
           <div className="space-y-2">
             <Label htmlFor="login-email">Email</Label>
             <Input

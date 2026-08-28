@@ -851,6 +851,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_email_verified: { Args: never; Returns: boolean }
       is_platform_admin: { Args: never; Returns: boolean }
       is_workspace_member: {
         Args: { _user_id: string; _workspace_id: string }
