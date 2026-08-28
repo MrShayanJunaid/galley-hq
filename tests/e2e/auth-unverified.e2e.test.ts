@@ -161,8 +161,12 @@ describe("unverified accounts", () => {
     expect(rpc.ok).toBe(false);
     expect(rpc.status).toBe(401);
 
-    const clients = await anonApi("/rest/v1/clients?select=id");
-    expect(clients.ok).toBe(false);
+    // Client rows are RLS-filtered, so anonymous reads must come back empty.
+    const clients = await anonApi<unknown[]>("/rest/v1/clients?select=id");
+    expect(clients.body).toEqual([]);
+
+    const workspaces = await anonApi<unknown[]>("/rest/v1/workspaces?select=id");
+    expect(workspaces.body).toEqual([]);
   });
 
   it("returns no workspace data for a bogus bearer token", async () => {
