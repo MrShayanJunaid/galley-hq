@@ -127,19 +127,52 @@ function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isPending, setIsPending] = useState(false);
+  const [isResending, setIsResending] = useState(false);
+  const [unverifiedEmail, setUnverifiedEmail] = useState<string | null>(null);
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     setIsPending(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    setIsPending(false);
+    setUnverifiedEmail(null);
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
+      setIsPending(false);
+      const text = error.message.toLowerCase();
+      if (text.includes("not confirmed") || text.includes("email not verified")) {
+        setUnverifiedEmail(email);
+        toast.error(UNVERIFIED_MESSAGE);
+        return;
+      }
       toast.error(error.message);
       return;
     }
+
+    // Belt and braces: an unverified account must never hold an app session.
+    if (!isEmailVerified(data.user)) {
+      await supabase.auth.signOut();
+      setIsPending(false);
+      setUnverifiedEmail(email);
+      toast.error(UNVERIFIED_MESSAGE);
+      return;
+    }
+
+    setIsPending(false);
     navigate({ to: "/dashboard", replace: true });
   }
+
+  async function handleResend() {
+    if (!unverifiedEmail) return;
+    setIsResending(true);
+    const { error } = await resendVerificationEmail(unverifiedEmail);
+    setIsResending(false);
+    if (error) {
+      toast.error(resendErrorMessage(error.message));
+      return;
+    }
+    toast.success("Verification email sent. Check your inbox.");
+  }
+
 
   return (
     <Card className="mt-4">
