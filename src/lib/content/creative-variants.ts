@@ -33,7 +33,7 @@ export const CREATIVE_VARIANTS: CreativeVariant[] = [
     label: "Product / offer composition",
     summary: "The product, service artefact or UI presented as the hero.",
     direction:
-      "Design a product/offer layout: the brand's actual product, service artefact, packaging or interface is the hero, presented with the reference set's treatment (cut-out on colour block, in-context shot, device frame, floating detail callouts). Headline and CTA anchor around it in a clean grid. Use colour blocking or shapes drawn from the brand palette to separate the type zone from the product zone.",
+      "Design a product/offer layout: the brand's actual product, service artefact, packaging or interface is the hero, presented with the reference set's treatment (cut-out on colour block, in-context shot, device frame, floating detail callouts). Only depict a screen or interface if a reference creative or brand asset actually shows one — otherwise use the physical product, packaging, service moment or a symbolic material object instead of inventing a fake dashboard. Headline and CTA anchor around it in a clean grid. Use colour blocking or shapes drawn from the brand palette to separate the type zone from the product zone.",
   },
   {
     index: 3,

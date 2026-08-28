@@ -133,7 +133,7 @@ function copyBlock(content: {
       ? `SUPPORTING LINE (optional, secondary size, shorten only by trimming whole words, never reword): "${support.slice(0, 160)}"`
       : "",
     cta ? `CALL TO ACTION (button, pill or bar treatment, small but unmissable): "${cta}"` : "",
-    "Spell every word exactly as written. Do not translate, paraphrase, add taglines, add pricing, add statistics, add guarantees or invent any claim, feature or result.",
+    "TYPOGRAPHY ACCURACY IS CRITICAL: render every glyph correctly — proofread the rendered lettering, no misspellings, no doubled or dropped letters, no invented words, no broken hyphenation. Spell every word exactly as written. Do not translate, paraphrase, add taglines, add pricing, add statistics, add guarantees or invent any claim, feature or result.",
     "Every piece of text must sit inside a deliberate typographic zone with real hierarchy — never floating over a focal point, never clipped by the frame edge, never overlapping another element.",
   ]
     .filter(Boolean)
