@@ -11,6 +11,13 @@ import { useSession } from "@/hooks/use-session";
 import { lovable } from "@/integrations/lovable";
 import { supabase } from "@/integrations/supabase/client";
 import { EMAIL_CONFIRM_PATH, authAppOrigin, authRedirectUrl } from "@/lib/auth-urls";
+import {
+  UNVERIFIED_MESSAGE,
+  isEmailVerified,
+  resendErrorMessage,
+  resendVerificationEmail,
+} from "@/lib/auth-verification";
+
 
 export const Route = createFileRoute("/auth/")({
   head: () => ({
@@ -183,7 +190,23 @@ function LoginForm() {
       <CardContent>
         <GoogleButton label="Continue with Google" />
         <Divider />
+        {unverifiedEmail ? (
+          <div className="mb-4 space-y-2 rounded-md border border-border bg-secondary/40 p-3">
+            <p className="text-sm text-foreground">{UNVERIFIED_MESSAGE}</p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="w-full"
+              disabled={isResending}
+              onClick={handleResend}
+            >
+              {isResending ? "Sending…" : "Resend verification email"}
+            </Button>
+          </div>
+        ) : null}
         <form onSubmit={handleSubmit} className="space-y-4">
+
           <div className="space-y-2">
             <Label htmlFor="login-email">Email</Label>
             <Input
