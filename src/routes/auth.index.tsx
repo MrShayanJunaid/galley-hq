@@ -37,13 +37,13 @@ export const Route = createFileRoute("/auth/")({
 
 function AuthPage() {
   const navigate = useNavigate();
-  const { isAuthenticated, isLoading } = useSession();
+  const { user, isAuthenticated, isLoading } = useSession();
 
   useEffect(() => {
-    if (!isLoading && isAuthenticated) {
-      navigate({ to: "/dashboard", replace: true });
-    }
-  }, [isAuthenticated, isLoading, navigate]);
+    if (isLoading || !isAuthenticated) return;
+    navigate({ to: isEmailVerified(user) ? "/dashboard" : "/verify-email", replace: true });
+  }, [isAuthenticated, isLoading, navigate, user]);
+
 
   return (
     <div className="flex min-h-screen">
