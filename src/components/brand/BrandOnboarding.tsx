@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { CompletionMeter, OnboardingStatusBadge, formatDateTime } from "@/components/brand/brand-status";
 import { BrandReferenceManager } from "@/components/brand/BrandReferenceManager";
 import { BrandVisualProfile } from "@/components/brand/BrandVisualProfile";
+import { ReferenceDesignLanguage } from "@/components/brand/ReferenceDesignLanguage";
 import { SuggestionReview } from "@/components/brand/SuggestionReview";
 import { WebsiteAnalysisPanel, type AnalysisPhase } from "@/components/brand/WebsiteAnalysisPanel";
 
