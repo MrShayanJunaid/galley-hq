@@ -15,7 +15,6 @@ import {
   PROTECTED_PATHS,
   UNVERIFIED_MESSAGE,
   hasStoredSession,
-  serverFnFailures,
   successfulServerFnCalls,
 } from "./helpers/app";
 import {
@@ -88,9 +87,6 @@ describe("unverified accounts", () => {
 
       expect(await currentPath(page)).toBe("/auth");
       expect(await page.innerText("body")).toContain(UNVERIFIED_MESSAGE);
-      await expect(
-        page.getByRole("button", { name: "Resend verification email" }),
-      ).toBeTruthy();
       expect(await page.getByRole("button", { name: "Resend verification email" }).count()).toBe(1);
       expect(await hasStoredSession(page)).toBe(false);
     } finally {
