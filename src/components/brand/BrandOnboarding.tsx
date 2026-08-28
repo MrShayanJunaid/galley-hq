@@ -56,7 +56,10 @@ export function BrandOnboarding({
   const queryClient = useQueryClient();
   const { data: profile, isLoading } = useBrandProfile(clientId);
   const { data: runs } = useBrandAnalysisRuns(clientId);
+  const { data: referenceList } = useBrandReferences(clientId);
+  const referenceCount = (referenceList ?? []).length;
   const analyze = useServerFn(analyzeClientWebsite);
+
 
   const [values, setValues] = useState<BrandFieldValues>(() => profileToValues(null));
   const [suggestions, setSuggestions] = useState<BrandSuggestions>({ values: {} });
