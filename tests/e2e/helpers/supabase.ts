@@ -84,26 +84,6 @@ export async function createTestUser(options: {
   return { id: result.body.id, email, password: TEST_PASSWORD };
 }
 
-/** Flips a user's verification state (used to simulate a stale unverified session). */
-export async function setEmailVerified(userId: string, verified: boolean): Promise<void> {
-  const result = await admin(`/auth/v1/admin/users/${userId}`, {
-    method: "PUT",
-    body: JSON.stringify(
-      verified ? { email_confirm: true } : { email_confirm: false, ban_duration: "none" },
-    ),
-  });
-  if (!result.ok) {
-    throw new Error(`Failed to update verification state: ${result.status}`);
-  }
-  if (!verified) {
-    // The admin API cannot clear email_confirmed_at, so clear it in the database.
-    const cleared = await admin("/rest/v1/rpc/e2e_noop", { method: "POST", body: "{}" }).catch(
-      () => null,
-    );
-    void cleared;
-  }
-}
-
 /** Password sign-in through the Auth API (bypasses the UI). */
 export async function signInWithPassword(user: TestUser) {
   return anonApi<Json & { access_token?: string; error_code?: string; msg?: string }>(
