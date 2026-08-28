@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 
 import { adminDb, assertAdmin, isPlatformAdmin } from "@/lib/api/admin-guard";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireVerifiedSupabaseAuth } from "@/integrations/supabase/verified-auth";
 
 export type AdminOverview = {
   totals: {
@@ -62,13 +62,13 @@ export type AdminSubscriptionRow = {
 };
 
 export const checkAdminAccess = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireVerifiedSupabaseAuth])
   .handler(async ({ context }) => {
     return { isAdmin: await isPlatformAdmin(context.supabase) };
   });
 
 export const getAdminOverview = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireVerifiedSupabaseAuth])
   .handler(async ({ context }): Promise<AdminOverview> => {
     await assertAdmin(context.supabase);
     const db = await adminDb();
@@ -130,7 +130,7 @@ export const getAdminOverview = createServerFn({ method: "GET" })
   });
 
 export const listAdminUsers = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireVerifiedSupabaseAuth])
   .handler(async ({ context }): Promise<AdminUserRow[]> => {
     await assertAdmin(context.supabase);
     const db = await adminDb();
@@ -167,7 +167,7 @@ export const listAdminUsers = createServerFn({ method: "GET" })
   });
 
 export const listAdminWorkspaces = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireVerifiedSupabaseAuth])
   .handler(async ({ context }): Promise<AdminWorkspaceRow[]> => {
     await assertAdmin(context.supabase);
     const db = await adminDb();
@@ -203,7 +203,7 @@ export const listAdminWorkspaces = createServerFn({ method: "GET" })
   });
 
 export const listAdminPlans = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireVerifiedSupabaseAuth])
   .handler(async ({ context }): Promise<AdminPlanRow[]> => {
     await assertAdmin(context.supabase);
     const db = await adminDb();
@@ -234,7 +234,7 @@ export const listAdminPlans = createServerFn({ method: "GET" })
   });
 
 export const listAdminSubscriptions = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireVerifiedSupabaseAuth])
   .handler(async ({ context }): Promise<AdminSubscriptionRow[]> => {
     await assertAdmin(context.supabase);
     const db = await adminDb();
@@ -286,7 +286,7 @@ export type AdminClientRow = {
 
 /** Read-only, platform-wide client visibility. Admin role is verified from the caller's session. */
 export const listAdminClients = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireVerifiedSupabaseAuth])
   .handler(async ({ context }): Promise<AdminClientRow[]> => {
     await assertAdmin(context.supabase);
     const db = await adminDb();
@@ -373,7 +373,7 @@ export type AdminContentActivity = {
 
 /** Read-only, platform-wide AI content activity. Admin role is verified from the caller's session. */
 export const getAdminContentActivity = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireVerifiedSupabaseAuth])
   .handler(async ({ context }): Promise<AdminContentActivity> => {
     await assertAdmin(context.supabase);
     const db = await adminDb();

@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireVerifiedSupabaseAuth } from "@/integrations/supabase/verified-auth";
 import {
   FORBIDDEN_RESULT,
   coerceConfig,
@@ -28,7 +28,7 @@ export type CreativeResponse =
 
 /** Generates brand-aware content ideas for a client in the caller's workspace. */
 export const generateContentIdeas = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireVerifiedSupabaseAuth])
   .inputValidator(
     (input: { clientId: string; config: StudioConfigInput; count?: number; avoidTitles?: string[] }) => {
       if (!input?.clientId) throw new Error("clientId is required");
@@ -78,7 +78,7 @@ export const generateContentIdeas = createServerFn({ method: "POST" })
 
 /** Generates platform-native copy for a selected idea. */
 export const generateContentDraft = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireVerifiedSupabaseAuth])
   .inputValidator(
     (input: {
       clientId: string;
@@ -137,7 +137,7 @@ export const generateContentDraft = createServerFn({ method: "POST" })
 
 /** Generates the structured creative direction consumed later by Creative Production. */
 export const generateContentCreativePrompt = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireVerifiedSupabaseAuth])
   .inputValidator(
     (input: { clientId: string; config: StudioConfigInput; idea: ContentIdea; draft: ContentDraft }) => {
       if (!input?.clientId) throw new Error("clientId is required");

@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireVerifiedSupabaseAuth } from "@/integrations/supabase/verified-auth";
 import type { CreativeAssetRecord, GenerateCreativeResult } from "@/lib/api/creative-image.server";
 
 export type { CreativeAssetRecord, GenerateCreativeResult };
@@ -11,7 +11,7 @@ export type { CreativeAssetRecord, GenerateCreativeResult };
  * four creatives are independent assets with independent status and versions.
  */
 export const generateCreativeVariantImage = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireVerifiedSupabaseAuth])
   .inputValidator(
     (input: {
       contentItemId: string;
@@ -50,7 +50,7 @@ export const generateCreativeVariantImage = createServerFn({ method: "POST" })
 
 /** Deletes one generated visual (row + stored file) for the caller's workspace. */
 export const deleteCreativeImage = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireVerifiedSupabaseAuth])
   .inputValidator((input: { creativeId: string }) => {
     if (!input?.creativeId) throw new Error("creativeId is required");
     return { creativeId: String(input.creativeId) };
