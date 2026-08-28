@@ -397,6 +397,13 @@ export function BrandOnboarding({
             workspaceId={workspaceId}
             disabled={disabled}
           />
+          <ReferenceDesignLanguage
+            clientId={clientId}
+            profileRow={profile as unknown as Record<string, unknown> | null}
+            referenceCount={referenceCount}
+            disabled={disabled}
+          />
+
         </TabsContent>
       </Tabs>
 
