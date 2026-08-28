@@ -116,3 +116,13 @@ async function ownedWorkspaceIds(userId: string): Promise<string> {
   if (!result.ok || !Array.isArray(result.body) || result.body.length === 0) return "00000000-0000-0000-0000-000000000000";
   return result.body.map((row) => row.id).join(",");
 }
+
+/** Looks up a user id by email through the Auth admin API. */
+export async function getUserIdByEmail(email: string): Promise<string | null> {
+  const result = await admin<{ users?: { id: string; email: string }[] }>(
+    `/auth/v1/admin/users?filter=${encodeURIComponent(email)}&per_page=50`,
+  );
+  if (!result.ok) return null;
+  const match = result.body.users?.find((user) => user.email === email);
+  return match?.id ?? null;
+}
