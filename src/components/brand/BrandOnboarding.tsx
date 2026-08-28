@@ -8,6 +8,7 @@ import { CompletionMeter, OnboardingStatusBadge, formatDateTime } from "@/compon
 import { BrandReferenceManager } from "@/components/brand/BrandReferenceManager";
 import { BrandVisualProfile } from "@/components/brand/BrandVisualProfile";
 import { ReferenceDesignLanguage } from "@/components/brand/ReferenceDesignLanguage";
+import { useBrandReferences } from "@/hooks/use-brand-references";
 import { SuggestionReview } from "@/components/brand/SuggestionReview";
 import { WebsiteAnalysisPanel, type AnalysisPhase } from "@/components/brand/WebsiteAnalysisPanel";
 
