@@ -1,5 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 
+import { brandProfileKeys } from "@/lib/api/brand-profile";
+import { analyzeBrandReferences } from "@/lib/api/brand-visual.functions";
 import {
   brandReferenceKeys,
   deleteBrandReference,
@@ -8,6 +11,23 @@ import {
   uploadBrandReference,
   type UploadReferenceArgs,
 } from "@/lib/api/brand-references";
+
+/**
+ * Learns the client's visual design language from their uploaded reference
+ * creatives and stores it against the brand for every future generation.
+ */
+export function useAnalyzeBrandReferences(clientId: string) {
+  const analyze = useServerFn(analyzeBrandReferences);
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => analyze({ data: { clientId } }),
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: brandProfileKeys.detail(clientId) });
+    },
+  });
+}
+
 
 export function useBrandReferences(clientId: string) {
   return useQuery({
