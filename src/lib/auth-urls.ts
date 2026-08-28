@@ -8,7 +8,7 @@
  */
 export const PRODUCTION_APP_URL =
   (import.meta.env['VITE_APP_URL'] as string | undefined)?.replace(/\/$/, "") ||
-  "https://galleyhq.com";
+  "https://galleyhq.lovable.app";
 
 /** Hosts where auth links should stay on the current origin (dev + editor preview). */
 const PREVIEW_HOST_PATTERNS = [
@@ -21,7 +21,12 @@ const PREVIEW_HOST_PATTERNS = [
 ];
 
 /** Hosts that are the real production app and can be used as-is. */
-const PRODUCTION_HOST_PATTERNS = [/^galleyhq\.com$/i, /^www\.galleyhq\.com$/i];
+const PRODUCTION_HOST_PATTERNS = [
+  /^galleyhq\.lovable\.app$/i,
+  /^galleyhq\.com$/i,
+  /^www\.galleyhq\.com$/i,
+];
+
 
 function isPreviewHost(hostname: string) {
   return PREVIEW_HOST_PATTERNS.some((pattern) => pattern.test(hostname));
