@@ -140,7 +140,7 @@ async function chatJsonRequest(args: {
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: args.system },
-          { role: "user", content: args.user },
+          { role: "user", content: args.content },
         ],
       }),
     });
