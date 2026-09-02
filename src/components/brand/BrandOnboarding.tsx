@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { CompletionMeter, OnboardingStatusBadge, formatDateTime } from "@/components/brand/brand-status";
 import { BrandReferenceManager } from "@/components/brand/BrandReferenceManager";
 import { BrandVisualProfile } from "@/components/brand/BrandVisualProfile";
+import { CreativeDirectionPanel } from "@/components/brand/CreativeDirectionPanel";
 import { ReferenceDesignLanguage } from "@/components/brand/ReferenceDesignLanguage";
 import { useBrandReferences } from "@/hooks/use-brand-references";
 import { SuggestionReview } from "@/components/brand/SuggestionReview";
@@ -400,6 +401,13 @@ export function BrandOnboarding({
           <BrandReferenceManager
             clientId={clientId}
             workspaceId={workspaceId}
+            disabled={disabled}
+          />
+          <CreativeDirectionPanel
+            clientId={clientId}
+            workspaceId={workspaceId}
+            profile={profile as BrandProfile | null}
+            referenceCount={referenceCount}
             disabled={disabled}
           />
           <ReferenceDesignLanguage
