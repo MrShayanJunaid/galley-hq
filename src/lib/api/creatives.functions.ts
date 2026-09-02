@@ -18,6 +18,10 @@ export const generateCreativeVariantImage = createServerFn({ method: "POST" })
       variantIndex: number;
       formatId?: string | null;
       promptOverride?: string | null;
+      /** Layer 4 refinement: applied to this regeneration only. */
+      feedback?: string | null;
+      /** Feedback row to mark as applied once the regeneration is requested. */
+      feedbackId?: string | null;
     }) => {
       if (!input?.contentItemId) throw new Error("contentItemId is required");
       const variantIndex = Number(input.variantIndex);
@@ -30,12 +34,22 @@ export const generateCreativeVariantImage = createServerFn({ method: "POST" })
         formatId: input.formatId ? String(input.formatId) : null,
         promptOverride:
           typeof input.promptOverride === "string" ? input.promptOverride.slice(0, 8000) : null,
+        feedback: typeof input.feedback === "string" ? input.feedback.slice(0, 2000) : null,
+        feedbackId: input.feedbackId ? String(input.feedbackId) : null,
       };
     },
   )
   .handler(async ({ data, context }): Promise<GenerateCreativeResult> => {
     const creative = await import("@/lib/api/creative-image.server");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    // RLS keeps this scoped to the caller's workspace.
+    if (data.feedbackId) {
+      await context.supabase
+        .from("creative_feedback")
+        .update({ applied: true })
+        .eq("id", data.feedbackId);
+    }
 
     return creative.generateCreativeVariant({
       supabase: context.supabase,
@@ -45,6 +59,7 @@ export const generateCreativeVariantImage = createServerFn({ method: "POST" })
       variantIndex: data.variantIndex,
       formatId: data.formatId,
       promptOverride: data.promptOverride,
+      feedback: data.feedback,
     });
   });
 

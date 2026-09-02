@@ -15,6 +15,11 @@
 import { generateImage, ImageGenerationError, type ReferenceImage } from "@/lib/ai/image.server";
 import { renderBrandContext, type BrandContext } from "@/lib/brand/context";
 import {
+  renderCreativeDirection,
+  toCreativeDirection,
+  type CreativeDirection,
+} from "@/lib/brand/creative-direction";
+import {
   hasReferenceProfile,
   renderReferenceProfile,
   toReferenceProfile,
@@ -163,9 +168,13 @@ export function composeVariantPrompt(args: {
   creative: CreativePrompt;
   brand: BrandContext | null;
   visual: BrandVisualConfig;
+  /** Layers 2 + 3: chosen visual direction and creative style. */
+  direction: CreativeDirection;
   referenceProfile: ReferenceVisualProfile;
   references: LoadedReference[];
   variant: CreativeVariant;
+  /** Layer 4: agency refinement feedback for this regeneration. */
+  feedback?: string | null;
   content: { title: string | null; hook: string | null; body: string | null; cta: string | null };
   platformLabel: string;
   aspectRatio: string;
@@ -176,6 +185,12 @@ export function composeVariantPrompt(args: {
   const { creative, variant, visual } = args;
   const brandText = args.brand ? renderBrandContext(args.brand).slice(0, 2000) : "";
   const visualText = renderVisualConfig(visual).slice(0, 1600);
+  const directionText = renderCreativeDirection({
+    direction: args.direction,
+    referenceCount: args.references.length,
+  }).slice(0, 2000);
+  const useReferences =
+    args.references.length > 0 && args.direction.visualDirectionMode === "references";
   const referenceText = hasReferenceProfile(args.referenceProfile)
     ? renderReferenceProfile(args.referenceProfile).slice(0, 2600)
     : "";
@@ -206,7 +221,17 @@ export function composeVariantPrompt(args: {
       ? `This is regeneration v${args.version}: keep the brand design language identical, but take a genuinely new compositional route than a first attempt would — different crop, different type placement, different visual device.`
       : "",
     "",
-    referenceText
+    directionText ? `=== CREATIVE DIRECTION (agency-selected) ===\n${directionText}` : "",
+    "",
+    args.feedback?.trim()
+      ? [
+          "=== AGENCY REFINEMENT FEEDBACK (highest priority for this regeneration) ===",
+          args.feedback.trim(),
+          "Apply this feedback precisely while keeping the brand identity, the approved copy and the required format unchanged.",
+        ].join("\n")
+      : "",
+    "",
+    useReferences && referenceText
       ? [
           "=== REFERENCE-DERIVED VISUAL DESIGN LANGUAGE (learned from this brand's own creatives — highest authority on HOW it should look) ===",
           referenceText,
@@ -214,14 +239,14 @@ export function composeVariantPrompt(args: {
         ].join("\n")
       : "",
     "",
-    args.references.length > 0
+    useReferences
       ? [
           `=== ATTACHED REFERENCE CREATIVES (${args.references.length}) ===`,
           "The attached images are this brand's real creatives. Study composition, layout skeleton, visual hierarchy, typography treatment, headline and CTA placement, logo placement, colour roles, background treatment, graphic shapes/overlays, photography style, spacing and text-to-visual density.",
           "Then design something NEW for the brief below using those same principles. Do not copy a reference, do not reuse its subject or its wording, and never place a reference image inside the output.",
           ...referenceLines,
         ].join("\n")
-      : "No reference creatives are attached — follow the written visual identity strictly and design a deliberate, agency-quality layout rather than defaulting to stock-style imagery.",
+      : "No reference creatives are being used — follow the brand foundation and the creative direction above strictly, and design a deliberate, agency-quality layout rather than defaulting to stock-style imagery.",
     "",
     visualText ? `=== WRITTEN VISUAL IDENTITY (client-stated preferences) ===\n${visualText}` : "",
     "",
@@ -294,6 +319,8 @@ export async function generateCreativeVariant(args: {
   variantIndex: number;
   formatId?: string | null;
   promptOverride?: string | null;
+  /** Layer 4: refinement feedback applied to this regeneration only. */
+  feedback?: string | null;
 }): Promise<GenerateCreativeResult> {
   const db = args.supabase as SupabaseLike;
   const variant = variantByIndex(args.variantIndex) ?? CREATIVE_VARIANTS[0]!;
@@ -330,6 +357,7 @@ export async function generateCreativeVariant(args: {
   let brand: BrandContext | null = null;
   let visual: BrandVisualConfig = toVisualConfig(null);
   let referenceProfile: ReferenceVisualProfile = toReferenceProfile(null);
+  let direction: CreativeDirection = toCreativeDirection(null);
   let storedSignature: string | null = null;
   let brandName: string | null = null;
   try {
@@ -344,6 +372,7 @@ export async function generateCreativeVariant(args: {
       brand = buildBrandContext(row);
       visual = toVisualConfig(row["visual_config"]);
       referenceProfile = toReferenceProfile(row["reference_visual_profile"]);
+      direction = toCreativeDirection(row["creative_direction"]);
       storedSignature = (row["reference_visual_signature"] as string | null) ?? null;
       brandName = (row["brand_name"] as string | null) ?? null;
     }
@@ -351,11 +380,15 @@ export async function generateCreativeVariant(args: {
     console.error("[creative] brand context unavailable", error);
   }
 
-  const references = await loadReferenceImages({
-    supabase: args.supabase,
-    admin: args.admin,
-    clientId: item.client_id,
-  });
+  // References are only attached when the agency's visual direction asks for them.
+  const references =
+    direction.visualDirectionMode === "references"
+      ? await loadReferenceImages({
+          supabase: args.supabase,
+          admin: args.admin,
+          clientId: item.client_id,
+        })
+      : [];
 
   // Learn (or relearn) the reference design language before generating, so the
   // creative is always driven by an up-to-date reading of the references.
@@ -394,6 +427,8 @@ export async function generateCreativeVariant(args: {
       creative,
       brand,
       visual,
+      direction,
+      feedback: args.feedback ?? null,
       referenceProfile,
       references,
       variant,

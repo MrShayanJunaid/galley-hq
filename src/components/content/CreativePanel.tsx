@@ -1,10 +1,12 @@
 import {
   AlertCircle,
   Check,
+  Compass,
   Download,
   ImageIcon,
   Images,
   Loader2,
+  MessageSquare,
   Palette,
   RefreshCw,
   Sparkles,
@@ -30,6 +32,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -41,7 +44,17 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useBrandProfile } from "@/hooks/use-brand-profile";
 import { useBrandReferences } from "@/hooks/use-brand-references";
 import { useContentCreatives, useDeleteCreative, useGenerateCreativeVariant } from "@/hooks/use-creatives";
+import type { CreativeFeedback } from "@/lib/api/creative-feedback";
 import { groupByVariant, type CreativeAsset } from "@/lib/api/creatives";
+import { useCreativeFeedback, useRecordCreativeFeedback } from "@/hooks/use-creative-feedback";
+import { useWorkspaceContext } from "@/hooks/use-workspace";
+import { formatDateTime as formatFeedbackDate } from "@/components/brand/brand-status";
+import {
+  creativeStyleById,
+  directionModeLabel,
+  isDirectionConfigured,
+  toCreativeDirection,
+} from "@/lib/brand/creative-direction";
 import { toVisualConfig, visualCompletion } from "@/lib/brand/visual-schema";
 import { CREATIVE_VARIANTS, type CreativeVariant } from "@/lib/content/creative-variants";
 import { creativeFormatById, defaultFormatFor, formatsForPlatform } from "@/lib/content/schema";
@@ -81,7 +94,11 @@ export function CreativePanel({
   const [pendingDelete, setPendingDelete] = useState<CreativeAsset | null>(null);
 
   const { data: assets, isLoading } = useContentCreatives(contentItemId);
+  const { data: feedbackHistory } = useCreativeFeedback(contentItemId);
+  const recordFeedback = useRecordCreativeFeedback(contentItemId);
   const { data: profile } = useBrandProfile(clientId);
+  const { data: workspaceContext } = useWorkspaceContext();
+  const workspaceId = workspaceContext?.workspace.id;
   const { data: references } = useBrandReferences(clientId);
   const generate = useGenerateCreativeVariant(clientId, contentItemId);
   const deleteMutation = useDeleteCreative(clientId, contentItemId);
@@ -92,8 +109,19 @@ export function CreativePanel({
 
   const grouped = useMemo(() => groupByVariant(assets ?? []), [assets]);
   const visual = useMemo(() => toVisualConfig(profile?.visual_config), [profile?.visual_config]);
+  const direction = useMemo(
+    () =>
+      toCreativeDirection(
+        (profile as unknown as Record<string, unknown> | null | undefined)?.["creative_direction"],
+      ),
+    [profile],
+  );
   const visualState = useMemo(() => visualCompletion(visual), [visual]);
   const referenceCount = references?.length ?? 0;
+  const directionReady = isDirectionConfigured(direction, referenceCount);
+  const styleLabels = direction.creativeStyleIds
+    .map((id) => creativeStyleById(id)?.label)
+    .filter((label): label is string => Boolean(label));
 
   const busyCount = Object.values(states).filter(
     (state) => state.stage !== "idle" && state.stage !== "completed" && state.stage !== "failed",
@@ -104,12 +132,20 @@ export function CreativePanel({
     setStates((prev) => ({ ...prev, [variantIndex]: { stage, error } }));
   }
 
-  async function runVariant(variantIndex: number) {
+  async function runVariant(
+    variantIndex: number,
+    refinement?: { feedback: string; feedbackId: string | null },
+  ) {
     if (!contentItemId) return;
     setStage(variantIndex, "preparing");
     const timer = window.setTimeout(() => setStage(variantIndex, "generating"), 1500);
     try {
-      const result = await generate.mutateAsync({ variantIndex, formatId });
+      const result = await generate.mutateAsync({
+        variantIndex,
+        formatId,
+        feedback: refinement?.feedback ?? null,
+        feedbackId: refinement?.feedbackId ?? null,
+      });
       window.clearTimeout(timer);
       if (!result.ok) {
         setStage(variantIndex, "failed", { message: result.message, retryable: result.retryable });
@@ -135,6 +171,43 @@ export function CreativePanel({
     const done = results.filter(Boolean).length;
     if (done === CREATIVE_VARIANTS.length) toast.success("4 brand creatives generated");
     else if (done > 0) toast.warning(`${done} of 4 creatives generated — retry the failed ones`);
+  }
+
+  /**
+   * Layer 4 — output refinement. The feedback is stored against this agency
+   * workspace first (so a later learning system can read the history), then
+   * applied to this single regeneration.
+   */
+  async function refineVariant(args: {
+    variantIndex: number;
+    creativeId: string | null;
+    feedback: string;
+  }) {
+    if (!contentItemId) return false;
+    const text = args.feedback.trim();
+    if (text.length < 4) {
+      toast.error("Add a little more detail so the regeneration can act on it.");
+      return false;
+    }
+
+    let feedbackId: string | null = null;
+    if (workspaceId) {
+      try {
+        const saved = await recordFeedback.mutateAsync({
+          workspaceId,
+          clientId,
+          contentItemId,
+          creativeId: args.creativeId,
+          variantIndex: args.variantIndex,
+          feedback: text,
+        });
+        feedbackId = saved.id;
+      } catch (error) {
+        console.error("[creative] feedback not stored", error);
+      }
+    }
+
+    return runVariant(args.variantIndex, { feedback: text, feedbackId });
   }
 
   const anyGenerated = (assets ?? []).some((asset) => asset.status === "succeeded");
@@ -168,6 +241,24 @@ export function CreativePanel({
               {visualState.isComplete
                 ? visual.visual_style.slice(0, 140) || "Visual rules saved for this brand."
                 : `Missing: ${visualState.missing.join(", ")}`}
+            </p>
+          </div>
+          <div className="rounded-lg border p-3">
+            <p className="flex items-center gap-2 text-sm font-medium">
+              <Compass className="size-4" />
+              Creative direction
+              {directionReady ? (
+                <Badge variant="secondary" className="gap-1">
+                  <Check className="size-3" />
+                  Set
+                </Badge>
+              ) : (
+                <Badge variant="outline">Not set</Badge>
+              )}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {directionModeLabel(direction.visualDirectionMode)}
+              {styleLabels.length > 0 ? ` · ${styleLabels.join(", ")}` : ""}
             </p>
           </div>
           <div className="rounded-lg border p-3">
@@ -270,6 +361,13 @@ export function CreativePanel({
               disabled={!contentItemId || !hasCreativeBrief}
               fallbackRatio={creativeFormatById(formatId)?.cssRatio ?? "1 / 1"}
               onGenerate={() => void runVariant(variant.index)}
+              onRefine={(feedback, creativeId) =>
+                void refineVariant({ variantIndex: variant.index, creativeId, feedback })
+              }
+              refining={recordFeedback.isPending}
+              feedbackHistory={(feedbackHistory ?? []).filter(
+                (entry) => entry.variantIndex === variant.index,
+              )}
               onDelete={(asset) => setPendingDelete(asset)}
             />
           ))}
@@ -325,6 +423,9 @@ function VariantCard({
   disabled,
   fallbackRatio,
   onGenerate,
+  onRefine,
+  refining,
+  feedbackHistory,
   onDelete,
 }: {
   variant: CreativeVariant;
@@ -334,8 +435,12 @@ function VariantCard({
   disabled: boolean;
   fallbackRatio: string;
   onGenerate: () => void;
+  onRefine: (feedback: string, creativeId: string | null) => void;
+  refining: boolean;
+  feedbackHistory: CreativeFeedback[];
   onDelete: (asset: CreativeAsset) => void;
 }) {
+  const [feedback, setFeedback] = useState("");
   const successful = versions.filter((asset) => asset.status === "succeeded");
   const latest = successful[0] ?? null;
   const busy = state.stage !== "idle" && state.stage !== "completed" && state.stage !== "failed";
@@ -413,6 +518,55 @@ function VariantCard({
           Not generated yet
         </div>
       )}
+
+      {latest ? (
+        <div className="space-y-2 rounded-lg border bg-muted/30 p-3">
+          <p className="flex items-center gap-2 text-xs font-medium">
+            <MessageSquare className="size-3.5" />
+            Refine this creative
+          </p>
+          <Textarea
+            rows={2}
+            value={feedback}
+            placeholder="e.g. Move the headline to the top, warmer light, tighter crop on the product, stronger CTA contrast."
+            onChange={(event) => setFeedback(event.target.value)}
+            disabled={disabled || busy}
+            aria-label={`Feedback for creative ${variant.index}`}
+          />
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[11px] text-muted-foreground">
+              Saved to your agency account and applied to the next version.
+            </p>
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={disabled || busy || refining || feedback.trim().length < 4}
+              onClick={() => {
+                onRefine(feedback, latest.id);
+                setFeedback("");
+              }}
+            >
+              {busy || refining ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <RefreshCw className="size-4" />
+              )}
+              Regenerate with feedback
+            </Button>
+          </div>
+          {feedbackHistory.length > 0 ? (
+            <ul className="space-y-1 border-t pt-2">
+              {feedbackHistory.slice(0, 3).map((entry) => (
+                <li key={entry.id} className="text-[11px] text-muted-foreground">
+                  <span className="text-foreground">{entry.feedback}</span>{" "}
+                  <span>· {formatFeedbackDate(entry.createdAt)}</span>
+                  {entry.applied ? <span> · applied</span> : null}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+      ) : null}
 
       {state.stage === "failed" && state.error ? (
         <Alert variant="destructive">
