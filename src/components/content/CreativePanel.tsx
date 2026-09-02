@@ -47,7 +47,7 @@ import { useContentCreatives, useDeleteCreative, useGenerateCreativeVariant } fr
 import type { CreativeFeedback } from "@/lib/api/creative-feedback";
 import { groupByVariant, type CreativeAsset } from "@/lib/api/creatives";
 import { useCreativeFeedback, useRecordCreativeFeedback } from "@/hooks/use-creative-feedback";
-import { useWorkspace } from "@/hooks/use-workspace";
+import { useWorkspaceContext } from "@/hooks/use-workspace";
 import { formatDateTime as formatFeedbackDate } from "@/components/brand/brand-status";
 import {
   creativeStyleById,
@@ -97,8 +97,8 @@ export function CreativePanel({
   const { data: feedbackHistory } = useCreativeFeedback(contentItemId);
   const recordFeedback = useRecordCreativeFeedback(contentItemId);
   const { data: profile } = useBrandProfile(clientId);
-  const { data: workspace } = useWorkspace();
-  const workspaceId = workspace?.workspace?.id;
+  const { data: workspaceContext } = useWorkspaceContext();
+  const workspaceId = workspaceContext?.workspace.id;
   const { data: references } = useBrandReferences(clientId);
   const generate = useGenerateCreativeVariant(clientId, contentItemId);
   const deleteMutation = useDeleteCreative(clientId, contentItemId);
