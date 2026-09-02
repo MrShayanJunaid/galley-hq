@@ -166,6 +166,7 @@ export type Database = {
           content_topics: string | null
           created_at: string
           created_by: string | null
+          creative_direction: Json
           cta_preferences: string | null
           customer_problems: string | null
           description: string | null
@@ -211,6 +212,7 @@ export type Database = {
           content_topics?: string | null
           created_at?: string
           created_by?: string | null
+          creative_direction?: Json
           cta_preferences?: string | null
           customer_problems?: string | null
           description?: string | null
@@ -256,6 +258,7 @@ export type Database = {
           content_topics?: string | null
           created_at?: string
           created_by?: string | null
+          creative_direction?: Json
           cta_preferences?: string | null
           customer_problems?: string | null
           description?: string | null
@@ -593,6 +596,77 @@ export type Database = {
           },
           {
             foreignKeyName: "content_items_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      creative_feedback: {
+        Row: {
+          applied: boolean
+          client_id: string | null
+          content_item_id: string | null
+          created_at: string
+          created_by: string
+          creative_id: string | null
+          feedback: string
+          id: string
+          updated_at: string
+          variant_index: number | null
+          workspace_id: string
+        }
+        Insert: {
+          applied?: boolean
+          client_id?: string | null
+          content_item_id?: string | null
+          created_at?: string
+          created_by?: string
+          creative_id?: string | null
+          feedback: string
+          id?: string
+          updated_at?: string
+          variant_index?: number | null
+          workspace_id: string
+        }
+        Update: {
+          applied?: boolean
+          client_id?: string | null
+          content_item_id?: string | null
+          created_at?: string
+          created_by?: string
+          creative_id?: string | null
+          feedback?: string
+          id?: string
+          updated_at?: string
+          variant_index?: number | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "creative_feedback_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "creative_feedback_content_item_id_fkey"
+            columns: ["content_item_id"]
+            isOneToOne: false
+            referencedRelation: "content_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "creative_feedback_creative_id_fkey"
+            columns: ["creative_id"]
+            isOneToOne: false
+            referencedRelation: "content_creatives"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "creative_feedback_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
