@@ -179,10 +179,9 @@ export const CREATIVE_STYLE_OPTIONS: CreativeStyleOption[] = [
   {
     id: "editorial",
     label: "Editorial",
-    summaryless: true,
     guidance:
       "Editorial finish: magazine layout logic, columns and baseline discipline, photographic honesty, typographic sophistication.",
-  } as CreativeStyleOption,
+  },
   {
     id: "modern",
     label: "Modern",
