@@ -37,12 +37,20 @@ export function useGenerateCreativeVariant(clientId: string, contentItemId: stri
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (args: { variantIndex: number; formatId?: string | null }) =>
+    mutationFn: (args: {
+      variantIndex: number;
+      formatId?: string | null;
+      /** Layer 4 refinement feedback for this regeneration. */
+      feedback?: string | null;
+      feedbackId?: string | null;
+    }) =>
       generate({
         data: {
           contentItemId: contentItemId as string,
           variantIndex: args.variantIndex,
           formatId: args.formatId ?? null,
+          feedback: args.feedback ?? null,
+          feedbackId: args.feedbackId ?? null,
         },
       }),
     onSettled: () => {
