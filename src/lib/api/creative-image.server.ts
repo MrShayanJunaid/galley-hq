@@ -525,7 +525,10 @@ export async function generateCreativeVariant(args: {
       prompt,
       negativePrompt: creative.negative_prompt,
       aspectRatio,
-      referenceImages: references.map((reference) => reference.image),
+      referenceImages: [
+        ...references.map((reference) => reference.image),
+        ...(brandLogo ? [brandLogo] : []),
+      ],
     });
 
     const extension = image.mimeType.includes("jpeg")
