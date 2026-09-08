@@ -176,7 +176,10 @@ export const analyzeClientWebsite = createServerFn({ method: "POST" })
             },
             ai_suggestions_at: generatedAt,
             ...(identity
-              ? { website_identity: identity, website_identity_at: generatedAt }
+              ? {
+                  website_identity: identity as never,
+                  website_identity_at: generatedAt,
+                }
               : {}),
           },
           { onConflict: "client_id" },
