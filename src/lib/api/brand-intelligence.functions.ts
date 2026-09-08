@@ -122,7 +122,7 @@ export const analyzeClientWebsite = createServerFn({ method: "POST" })
 
       // Measure the site's real visual identity (colours, fonts, type, logos,
       // UI shapes) from its HTML/CSS assets — never guessed from page text.
-      let identity: unknown = null;
+      let identity: Record<string, unknown> | null = null;
       let identityWarning: string | null = null;
       try {
         const { extractWebsiteIdentity } = await import("@/lib/api/website-identity.server");
