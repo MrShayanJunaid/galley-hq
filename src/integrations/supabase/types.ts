@@ -194,6 +194,8 @@ export type Database = {
           website_analysis_error: string | null
           website_analysis_status: string
           website_analyzed_at: string | null
+          website_identity: Json
+          website_identity_at: string | null
           website_url: string | null
           workspace_id: string
         }
@@ -240,6 +242,8 @@ export type Database = {
           website_analysis_error?: string | null
           website_analysis_status?: string
           website_analyzed_at?: string | null
+          website_identity?: Json
+          website_identity_at?: string | null
           website_url?: string | null
           workspace_id: string
         }
@@ -286,6 +290,8 @@ export type Database = {
           website_analysis_error?: string | null
           website_analysis_status?: string
           website_analyzed_at?: string | null
+          website_identity?: Json
+          website_identity_at?: string | null
           website_url?: string | null
           workspace_id?: string
         }

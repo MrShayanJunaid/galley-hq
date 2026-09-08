@@ -49,6 +49,7 @@ import { groupByVariant, type CreativeAsset } from "@/lib/api/creatives";
 import { useCreativeFeedback, useRecordCreativeFeedback } from "@/hooks/use-creative-feedback";
 import { useWorkspaceContext } from "@/hooks/use-workspace";
 import { formatDateTime as formatFeedbackDate } from "@/components/brand/brand-status";
+import { WebsiteIdentityPanel } from "@/components/brand/WebsiteIdentityPanel";
 import {
   creativeStyleById,
   directionModeLabel,
@@ -274,6 +275,13 @@ export function CreativePanel({
             </p>
           </div>
         </div>
+
+        <WebsiteIdentityPanel
+          profileRow={profile as unknown as Record<string, unknown> | null}
+          compact
+        />
+
+
 
         {!visualState.isComplete || referenceCount === 0 ? (
           <Alert>

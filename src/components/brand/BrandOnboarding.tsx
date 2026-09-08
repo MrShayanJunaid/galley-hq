@@ -12,6 +12,7 @@ import { ReferenceDesignLanguage } from "@/components/brand/ReferenceDesignLangu
 import { useBrandReferences } from "@/hooks/use-brand-references";
 import { SuggestionReview } from "@/components/brand/SuggestionReview";
 import { WebsiteAnalysisPanel, type AnalysisPhase } from "@/components/brand/WebsiteAnalysisPanel";
+import { WebsiteIdentityPanel } from "@/components/brand/WebsiteIdentityPanel";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -152,6 +153,7 @@ export function BrandOnboarding({
           ? `${count} brand suggestion${count === 1 ? "" : "s"} ready for review`
           : "Analysis finished, but the website had little usable brand information",
       );
+      if (result.identityWarning) toast.warning(result.identityWarning);
     },
     onError: (error: Error) => {
       setPhase("failed");
@@ -276,6 +278,10 @@ export function BrandOnboarding({
         runs={runs ?? []}
         disabled={disabled || !workspaceId}
       />
+
+      <WebsiteIdentityPanel profileRow={profile as unknown as Record<string, unknown> | null} />
+
+
 
       <SuggestionReview
         values={values}

@@ -31,6 +31,12 @@ import {
   type BrandVisualConfig,
 } from "@/lib/brand/visual-schema";
 import {
+  hasWebsiteIdentity,
+  renderWebsiteIdentity,
+  toWebsiteIdentity,
+  type WebsiteIdentity,
+} from "@/lib/brand/website-identity";
+import {
   CREATIVE_VARIANTS,
   GENERIC_OUTPUT_BANLIST,
   variantByIndex,
@@ -171,6 +177,10 @@ export function composeVariantPrompt(args: {
   /** Layers 2 + 3: chosen visual direction and creative style. */
   direction: CreativeDirection;
   referenceProfile: ReferenceVisualProfile;
+  /** Measured identity of the client's real website (colours, fonts, logos, shapes). */
+  websiteIdentity?: WebsiteIdentity | null;
+  /** True when the brand's real logo file is attached to this request. */
+  logoAttached?: boolean;
   references: LoadedReference[];
   variant: CreativeVariant;
   /** Layer 4: agency refinement feedback for this regeneration. */
@@ -194,6 +204,9 @@ export function composeVariantPrompt(args: {
   const referenceText = hasReferenceProfile(args.referenceProfile)
     ? renderReferenceProfile(args.referenceProfile).slice(0, 2600)
     : "";
+  const identity = args.websiteIdentity ?? null;
+  const identityText =
+    identity && hasWebsiteIdentity(identity) ? renderWebsiteIdentity(identity).slice(0, 3000) : "";
 
   const referenceLines = args.references.map((reference, index) =>
     reference.description?.trim()
@@ -248,12 +261,25 @@ export function composeVariantPrompt(args: {
         ].join("\n")
       : "No reference creatives are being used — follow the brand foundation and the creative direction above strictly, and design a deliberate, agency-quality layout rather than defaulting to stock-style imagery.",
     "",
+    identityText
+      ? [
+          useReferences
+            ? "=== WEBSITE BRAND IDENTITY (measured from the brand's live website — authority on colours, fonts and UI shapes) ==="
+            : "=== WEBSITE BRAND IDENTITY (measured from the brand's live website — HIGHEST authority on how this creative must look) ===",
+          identityText,
+          "These values were read from the site's real stylesheets, CSS variables, font declarations and assets. Use these exact colours and these exact typefaces. Do NOT substitute similar colours, do NOT pick a different font, and do NOT invent a new palette or visual style. Any generic default look is a failure — the creative must be recognisable as coming from this website.",
+        ].join("\n")
+      : "",
+    "",
     visualText ? `=== WRITTEN VISUAL IDENTITY (client-stated preferences) ===\n${visualText}` : "",
     "",
     brandText ? `=== BRAND INTELLIGENCE (voice, positioning, audience, offering) ===\n${brandText}` : "",
     args.brandName ? `Brand name for any wordmark/logo lockup: ${args.brandName}.` : "",
     "=== BRAND ASSETS ===",
-    "If a logo or wordmark appears in the attached references, reproduce it faithfully in the placement the references use — same mark, same proportions, same colourway. Never invent a different logo, never restyle the mark, and never substitute a generic icon. If no logo is visible in the references, place a small, clean wordmark of the brand name in the brand's typographic style instead. Keep brand colours exactly as the references use them.",
+    args.logoAttached
+      ? "The brand's real logo file taken from its website is attached as an image input. Reproduce that exact mark — same shapes, proportions and colourway — placed with clean clear space (typically a corner or the top of the layout). Never redraw, restyle, recolour or replace it, and never add a second logo."
+      : "",
+    "If a logo or wordmark appears in the attached references, reproduce it faithfully in the placement the references use — same mark, same proportions, same colourway. Never invent a different logo, never restyle the mark, and never substitute a generic icon. If no logo is available, place a small, clean wordmark of the brand name set in the brand's own typeface instead. Keep brand colours exactly as measured.",
     "",
     "=== CREATIVE BRIEF FOR THIS POST ===",
     creative.prompt?.trim() ?? "",
@@ -360,6 +386,7 @@ export async function generateCreativeVariant(args: {
   let direction: CreativeDirection = toCreativeDirection(null);
   let storedSignature: string | null = null;
   let brandName: string | null = null;
+  let websiteIdentity: WebsiteIdentity | null = null;
   try {
     const { data } = await db
       .from("client_brand_profiles")
@@ -375,6 +402,8 @@ export async function generateCreativeVariant(args: {
       direction = toCreativeDirection(row["creative_direction"]);
       storedSignature = (row["reference_visual_signature"] as string | null) ?? null;
       brandName = (row["brand_name"] as string | null) ?? null;
+      const identity = toWebsiteIdentity(row["website_identity"]);
+      websiteIdentity = hasWebsiteIdentity(identity) ? identity : null;
     }
   } catch (error) {
     console.error("[creative] brand context unavailable", error);
@@ -389,6 +418,19 @@ export async function generateCreativeVariant(args: {
           clientId: item.client_id,
         })
       : [];
+
+  // The brand's real logo, taken from its own website, is attached as a true
+  // multimodal input so the mark is reproduced instead of invented.
+  let brandLogo: ReferenceImage | null = null;
+  if (websiteIdentity && websiteIdentity.logos.length > 0) {
+    try {
+      const { fetchLogoAsset } = await import("@/lib/api/website-identity.server");
+      const asset = await fetchLogoAsset(websiteIdentity.logos);
+      if (asset) brandLogo = { base64: asset.base64, mimeType: asset.mimeType };
+    } catch (error) {
+      console.error("[creative] website logo unavailable", error);
+    }
+  }
 
   // Learn (or relearn) the reference design language before generating, so the
   // creative is always driven by an up-to-date reading of the references.
@@ -430,6 +472,8 @@ export async function generateCreativeVariant(args: {
       direction,
       feedback: args.feedback ?? null,
       referenceProfile,
+      websiteIdentity,
+      logoAttached: Boolean(brandLogo),
       references,
       variant,
       content: { title: item.title, hook: item.hook, body: item.body, cta: item.cta },
@@ -481,7 +525,10 @@ export async function generateCreativeVariant(args: {
       prompt,
       negativePrompt: creative.negative_prompt,
       aspectRatio,
-      referenceImages: references.map((reference) => reference.image),
+      referenceImages: [
+        ...references.map((reference) => reference.image),
+        ...(brandLogo ? [brandLogo] : []),
+      ],
     });
 
     const extension = image.mimeType.includes("jpeg")
