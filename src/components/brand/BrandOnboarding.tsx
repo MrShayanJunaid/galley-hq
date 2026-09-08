@@ -12,6 +12,7 @@ import { ReferenceDesignLanguage } from "@/components/brand/ReferenceDesignLangu
 import { useBrandReferences } from "@/hooks/use-brand-references";
 import { SuggestionReview } from "@/components/brand/SuggestionReview";
 import { WebsiteAnalysisPanel, type AnalysisPhase } from "@/components/brand/WebsiteAnalysisPanel";
+import { WebsiteIdentityPanel } from "@/components/brand/WebsiteIdentityPanel";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
