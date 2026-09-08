@@ -131,7 +131,7 @@ export const analyzeClientWebsite = createServerFn({ method: "POST" })
           brandName: client.company_name ?? client.name,
           pageText: pages[0]?.text ?? null,
         });
-        identity = outcome.identity;
+        identity = outcome.identity as unknown as Record<string, unknown>;
         identityWarning = outcome.warning;
       } catch (identityError) {
         console.error("[brand-analysis] website identity extraction failed", identityError);
