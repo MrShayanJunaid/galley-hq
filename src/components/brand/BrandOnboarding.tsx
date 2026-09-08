@@ -153,6 +153,7 @@ export function BrandOnboarding({
           ? `${count} brand suggestion${count === 1 ? "" : "s"} ready for review`
           : "Analysis finished, but the website had little usable brand information",
       );
+      if (result.identityWarning) toast.warning(result.identityWarning);
     },
     onError: (error: Error) => {
       setPhase("failed");
