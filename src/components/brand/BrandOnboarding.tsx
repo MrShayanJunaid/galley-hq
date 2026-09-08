@@ -277,6 +277,10 @@ export function BrandOnboarding({
         disabled={disabled || !workspaceId}
       />
 
+      <WebsiteIdentityPanel profileRow={profile as unknown as Record<string, unknown> | null} />
+
+
+
       <SuggestionReview
         values={values}
         suggestions={suggestions.values}
