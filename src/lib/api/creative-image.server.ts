@@ -204,6 +204,9 @@ export function composeVariantPrompt(args: {
   const referenceText = hasReferenceProfile(args.referenceProfile)
     ? renderReferenceProfile(args.referenceProfile).slice(0, 2600)
     : "";
+  const identity = args.websiteIdentity ?? null;
+  const identityText =
+    identity && hasWebsiteIdentity(identity) ? renderWebsiteIdentity(identity).slice(0, 3000) : "";
 
   const referenceLines = args.references.map((reference, index) =>
     reference.description?.trim()
