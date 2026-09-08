@@ -419,6 +419,19 @@ export async function generateCreativeVariant(args: {
         })
       : [];
 
+  // The brand's real logo, taken from its own website, is attached as a true
+  // multimodal input so the mark is reproduced instead of invented.
+  let brandLogo: ReferenceImage | null = null;
+  if (websiteIdentity && websiteIdentity.logos.length > 0) {
+    try {
+      const { fetchLogoAsset } = await import("@/lib/api/website-identity.server");
+      const asset = await fetchLogoAsset(websiteIdentity.logos);
+      if (asset) brandLogo = { base64: asset.base64, mimeType: asset.mimeType };
+    } catch (error) {
+      console.error("[creative] website logo unavailable", error);
+    }
+  }
+
   // Learn (or relearn) the reference design language before generating, so the
   // creative is always driven by an up-to-date reading of the references.
   if (references.length > 0) {
