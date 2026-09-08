@@ -386,6 +386,7 @@ export async function generateCreativeVariant(args: {
   let direction: CreativeDirection = toCreativeDirection(null);
   let storedSignature: string | null = null;
   let brandName: string | null = null;
+  let websiteIdentity: WebsiteIdentity | null = null;
   try {
     const { data } = await db
       .from("client_brand_profiles")
@@ -401,6 +402,8 @@ export async function generateCreativeVariant(args: {
       direction = toCreativeDirection(row["creative_direction"]);
       storedSignature = (row["reference_visual_signature"] as string | null) ?? null;
       brandName = (row["brand_name"] as string | null) ?? null;
+      const identity = toWebsiteIdentity(row["website_identity"]);
+      websiteIdentity = hasWebsiteIdentity(identity) ? identity : null;
     }
   } catch (error) {
     console.error("[creative] brand context unavailable", error);
