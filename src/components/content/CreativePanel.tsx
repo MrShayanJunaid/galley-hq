@@ -275,6 +275,13 @@ export function CreativePanel({
           </div>
         </div>
 
+        <WebsiteIdentityPanel
+          profileRow={profile as unknown as Record<string, unknown> | null}
+          compact
+        />
+
+
+
         {!visualState.isComplete || referenceCount === 0 ? (
           <Alert>
             <Palette className="size-4" />
