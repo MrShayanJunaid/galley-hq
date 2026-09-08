@@ -472,6 +472,8 @@ export async function generateCreativeVariant(args: {
       direction,
       feedback: args.feedback ?? null,
       referenceProfile,
+      websiteIdentity,
+      logoAttached: Boolean(brandLogo),
       references,
       variant,
       content: { title: item.title, hook: item.hook, body: item.body, cta: item.cta },
