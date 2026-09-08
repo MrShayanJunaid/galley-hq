@@ -30,6 +30,8 @@ export type AnalyzeWebsiteResult =
       insights: WebsiteInsights;
       model: string;
       generatedAt: string;
+      /** Set when the site's styling could not be read for identity extraction. */
+      identityWarning?: string | null;
     }
   | {
       ok: false;
@@ -118,6 +120,23 @@ export const analyzeClientWebsite = createServerFn({ method: "POST" })
         websiteUrl,
       });
 
+      // Measure the site's real visual identity (colours, fonts, type, logos,
+      // UI shapes) from its HTML/CSS assets — never guessed from page text.
+      let identity: unknown = null;
+      let identityWarning: string | null = null;
+      try {
+        const { extractWebsiteIdentity } = await import("@/lib/api/website-identity.server");
+        const outcome = await extractWebsiteIdentity({
+          websiteUrl,
+          brandName: client.company_name ?? client.name,
+          pageText: pages[0]?.text ?? null,
+        });
+        identity = outcome.identity;
+        identityWarning = outcome.warning;
+      } catch (identityError) {
+        console.error("[brand-analysis] website identity extraction failed", identityError);
+      }
+
       const generatedAt = new Date().toISOString();
       const insights: WebsiteInsights = {
         ...extracted.insights,
@@ -156,6 +175,9 @@ export const analyzeClientWebsite = createServerFn({ method: "POST" })
               sourceUrl: websiteUrl,
             },
             ai_suggestions_at: generatedAt,
+            ...(identity
+              ? { website_identity: identity, website_identity_at: generatedAt }
+              : {}),
           },
           { onConflict: "client_id" },
         );
@@ -169,6 +191,7 @@ export const analyzeClientWebsite = createServerFn({ method: "POST" })
         insights,
         model: extracted.model,
         generatedAt,
+        identityWarning,
       };
     } catch (error) {
       const code = error instanceof BrandAnalysisError ? error.code : "unknown";

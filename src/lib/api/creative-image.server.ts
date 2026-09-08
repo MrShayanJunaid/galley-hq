@@ -31,6 +31,12 @@ import {
   type BrandVisualConfig,
 } from "@/lib/brand/visual-schema";
 import {
+  hasWebsiteIdentity,
+  renderWebsiteIdentity,
+  toWebsiteIdentity,
+  type WebsiteIdentity,
+} from "@/lib/brand/website-identity";
+import {
   CREATIVE_VARIANTS,
   GENERIC_OUTPUT_BANLIST,
   variantByIndex,
@@ -171,6 +177,10 @@ export function composeVariantPrompt(args: {
   /** Layers 2 + 3: chosen visual direction and creative style. */
   direction: CreativeDirection;
   referenceProfile: ReferenceVisualProfile;
+  /** Measured identity of the client's real website (colours, fonts, logos, shapes). */
+  websiteIdentity?: WebsiteIdentity | null;
+  /** True when the brand's real logo file is attached to this request. */
+  logoAttached?: boolean;
   references: LoadedReference[];
   variant: CreativeVariant;
   /** Layer 4: agency refinement feedback for this regeneration. */
@@ -248,12 +258,25 @@ export function composeVariantPrompt(args: {
         ].join("\n")
       : "No reference creatives are being used — follow the brand foundation and the creative direction above strictly, and design a deliberate, agency-quality layout rather than defaulting to stock-style imagery.",
     "",
+    identityText
+      ? [
+          useReferences
+            ? "=== WEBSITE BRAND IDENTITY (measured from the brand's live website — authority on colours, fonts and UI shapes) ==="
+            : "=== WEBSITE BRAND IDENTITY (measured from the brand's live website — HIGHEST authority on how this creative must look) ===",
+          identityText,
+          "These values were read from the site's real stylesheets, CSS variables, font declarations and assets. Use these exact colours and these exact typefaces. Do NOT substitute similar colours, do NOT pick a different font, and do NOT invent a new palette or visual style. Any generic default look is a failure — the creative must be recognisable as coming from this website.",
+        ].join("\n")
+      : "",
+    "",
     visualText ? `=== WRITTEN VISUAL IDENTITY (client-stated preferences) ===\n${visualText}` : "",
     "",
     brandText ? `=== BRAND INTELLIGENCE (voice, positioning, audience, offering) ===\n${brandText}` : "",
     args.brandName ? `Brand name for any wordmark/logo lockup: ${args.brandName}.` : "",
     "=== BRAND ASSETS ===",
-    "If a logo or wordmark appears in the attached references, reproduce it faithfully in the placement the references use — same mark, same proportions, same colourway. Never invent a different logo, never restyle the mark, and never substitute a generic icon. If no logo is visible in the references, place a small, clean wordmark of the brand name in the brand's typographic style instead. Keep brand colours exactly as the references use them.",
+    args.logoAttached
+      ? "The brand's real logo file taken from its website is attached as an image input. Reproduce that exact mark — same shapes, proportions and colourway — placed with clean clear space (typically a corner or the top of the layout). Never redraw, restyle, recolour or replace it, and never add a second logo."
+      : "",
+    "If a logo or wordmark appears in the attached references, reproduce it faithfully in the placement the references use — same mark, same proportions, same colourway. Never invent a different logo, never restyle the mark, and never substitute a generic icon. If no logo is available, place a small, clean wordmark of the brand name set in the brand's own typeface instead. Keep brand colours exactly as measured.",
     "",
     "=== CREATIVE BRIEF FOR THIS POST ===",
     creative.prompt?.trim() ?? "",
