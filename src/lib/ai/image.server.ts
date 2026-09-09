@@ -1,5 +1,5 @@
 /**
- * Server-only image generation provider layer (Nano Banana).
+ * Server-only image generation provider layer (OpenAI GPT-Image).
  *
  * The rest of the app only ever sees {@link GeneratedImage}, so the provider
  * can be swapped without touching the Content Studio. Keys are read from
@@ -39,37 +39,48 @@ export type GeneratedImage = {
 };
 
 type Provider = {
-  label: "nano-banana" | "lovable";
+  label: "openai" | "lovable";
   model: string;
   key: string;
+  generationsUrl: string;
+  editsUrl: string;
 };
 
-const NANO_BANANA_DEFAULT_MODEL = "gemini-2.5-flash-image";
-const LOVABLE_IMAGE_MODEL = "google/gemini-3-pro-image";
-const LOVABLE_IMAGE_URL = "https://ai.gateway.lovable.dev/v1/images/generations";
-const GOOGLE_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models";
+/** Latest available GPT-Image model. */
+const OPENAI_IMAGE_MODEL = "gpt-image-2";
+/** Same model id, namespaced for the managed Lovable AI Gateway. */
+const LOVABLE_IMAGE_MODEL = "openai/gpt-image-2";
+const OPENAI_BASE = "https://api.openai.com/v1";
+const LOVABLE_BASE = "https://ai.gateway.lovable.dev/v1";
 /** Deliberately generous: image models routinely run for minutes. */
 const IMAGE_TIMEOUT_MS = 300_000;
+/** High-quality renders for client-facing creatives. */
+const IMAGE_QUALITY = "high";
 
 /**
- * Prefers a workspace-provided Nano Banana key, and falls back to the managed
- * Lovable AI Gateway (which serves the same Nano Banana family of models).
+ * Prefers a workspace-provided OpenAI key, and falls back to the managed
+ * Lovable AI Gateway (which serves the same GPT-Image model).
  */
 export function resolveImageProvider(): Provider {
-  const nanoKey =
-    process.env["NANO_BANANA_API_KEY"] ??
-    process.env["GEMINI_API_KEY"] ??
-    process.env["GOOGLE_AI_API_KEY"];
-  if (nanoKey) {
+  const openaiKey = process.env["OPENAI_API_KEY"];
+  if (openaiKey) {
     return {
-      label: "nano-banana",
-      model: process.env["NANO_BANANA_MODEL"] ?? NANO_BANANA_DEFAULT_MODEL,
-      key: nanoKey,
+      label: "openai",
+      model: process.env["OPENAI_IMAGE_MODEL"] ?? OPENAI_IMAGE_MODEL,
+      key: openaiKey,
+      generationsUrl: `${OPENAI_BASE}/images/generations`,
+      editsUrl: `${OPENAI_BASE}/images/edits`,
     };
   }
   const lovableKey = process.env["LOVABLE_API_KEY"];
   if (lovableKey) {
-    return { label: "lovable", model: LOVABLE_IMAGE_MODEL, key: lovableKey };
+    return {
+      label: "lovable",
+      model: LOVABLE_IMAGE_MODEL,
+      key: lovableKey,
+      generationsUrl: `${LOVABLE_BASE}/images/generations`,
+      editsUrl: `${LOVABLE_BASE}/images/edits`,
+    };
   }
   throw new ImageGenerationError(
     "image_unavailable",
@@ -92,6 +103,21 @@ export type ImageRequest = {
   referenceImages?: ReferenceImage[];
 };
 
+/**
+ * GPT-Image only accepts a fixed set of sizes, so social ratios are mapped to
+ * the closest supported canvas (portrait ratios stay portrait).
+ */
+function resolveSize(aspectRatio: string): string {
+  const ratio = aspectRatio.trim();
+  if (ratio === "9:16" || ratio === "4:5" || ratio === "2:3" || ratio === "3:4") {
+    return "1024x1536";
+  }
+  if (ratio === "16:9" || ratio === "1.91:1" || ratio === "3:2" || ratio === "4:3") {
+    return "1536x1024";
+  }
+  return "1024x1024";
+}
+
 export async function generateImage(args: ImageRequest): Promise<GeneratedImage> {
   const provider = resolveImageProvider();
   const startedAt = Date.now();
@@ -99,12 +125,18 @@ export async function generateImage(args: ImageRequest): Promise<GeneratedImage>
   const timer = setTimeout(() => controller.abort(), IMAGE_TIMEOUT_MS);
 
   try {
+    const references = (args.referenceImages ?? []).filter((reference) => reference.base64);
     const result =
-      provider.label === "nano-banana"
-        ? await callNanoBanana(provider, args, controller.signal)
-        : await callLovableGateway(provider, args, controller.signal);
+      references.length > 0
+        ? await callOpenAiEdits(provider, args, references, controller.signal)
+        : await callOpenAiGenerations(provider, args, controller.signal);
 
-    return { ...result, provider: provider.label, model: provider.model, durationMs: Date.now() - startedAt };
+    return {
+      ...result,
+      provider: provider.label,
+      model: provider.model,
+      durationMs: Date.now() - startedAt,
+    };
   } catch (error) {
     if (error instanceof ImageGenerationError) throw error;
     if (error instanceof Error && error.name === "AbortError") {
@@ -127,111 +159,91 @@ export async function generateImage(args: ImageRequest): Promise<GeneratedImage>
 
 type RawImage = { bytes: Uint8Array; mimeType: string };
 
-/** Google Generative Language API ("Nano Banana") direct integration. */
-async function callNanoBanana(
-  provider: Provider,
-  args: ImageRequest,
-  signal: AbortSignal,
-): Promise<RawImage> {
-  const prompt = args.negativePrompt?.trim()
-    ? `${args.prompt}\n\nAvoid: ${args.negativePrompt.trim()}`
-    : args.prompt;
-
-  // Reference images come first so the model reads them as style guidance for
-  // the instruction that follows.
-  const parts: Array<Record<string, unknown>> = [];
-  for (const reference of args.referenceImages ?? []) {
-    parts.push({ inlineData: { mimeType: reference.mimeType, data: reference.base64 } });
-  }
-  parts.push({ text: prompt });
-
-  const response = await fetch(
-    `${GOOGLE_BASE_URL}/${encodeURIComponent(provider.model)}:generateContent`,
-    {
-      method: "POST",
-      signal,
-      headers: { "content-type": "application/json", "x-goog-api-key": provider.key },
-      body: JSON.stringify({
-        contents: [{ role: "user", parts }],
-        generationConfig: {
-          responseModalities: ["IMAGE"],
-          imageConfig: { aspectRatio: args.aspectRatio },
-        },
-      }),
-    },
-  );
-
-  if (!response.ok) {
-    const body = (await response.text()).slice(0, 800);
-    console.error(`[image] provider=nano-banana status=${response.status}: ${body}`);
-    throw statusToError(response.status, provider.model);
-  }
-
-  const payload = (await response.json()) as {
-    promptFeedback?: { blockReason?: string };
-    candidates?: Array<{
-      finishReason?: string;
-      content?: { parts?: Array<{ inlineData?: { mimeType?: string; data?: string } }> };
-    }>;
-  };
-
-  if (payload.promptFeedback?.blockReason) {
-    throw new ImageGenerationError(
-      "image_blocked",
-      "The image provider refused this creative brief. Edit the creative prompt and try again.",
-    );
-  }
-
-  const responseParts = payload.candidates?.[0]?.content?.parts ?? [];
-  for (const part of responseParts) {
-    const data = part.inlineData?.data;
-    if (data) return decodeBase64(data, part.inlineData?.mimeType ?? "image/png");
-  }
-
-  throw emptyResult();
-}
-
-/** Managed Lovable AI Gateway image endpoint (same Nano Banana model family). */
-async function callLovableGateway(
-  provider: Provider,
-  args: ImageRequest,
-  signal: AbortSignal,
-): Promise<RawImage> {
-  const prompt = [
+/** Full prompt text, including the aspect-ratio and avoid instructions. */
+function composePrompt(args: ImageRequest, size: string): string {
+  return [
     args.prompt,
-    `Required aspect ratio: ${args.aspectRatio}.`,
+    `Required aspect ratio: ${args.aspectRatio} (rendered at ${size}). Compose for this exact frame.`,
     args.negativePrompt?.trim() ? `Avoid: ${args.negativePrompt.trim()}` : "",
   ]
     .filter(Boolean)
     .join("\n\n");
+}
 
-  const references = args.referenceImages ?? [];
-  const content =
-    references.length > 0
-      ? [
-          ...references.map((reference) => ({
-            type: "image_url" as const,
-            image_url: { url: `data:${reference.mimeType};base64,${reference.base64}` },
-          })),
-          { type: "text" as const, text: prompt },
-        ]
-      : prompt;
-
-  const response = await fetch(LOVABLE_IMAGE_URL, {
+/** Text-to-image: OpenAI images-generations shape. */
+async function callOpenAiGenerations(
+  provider: Provider,
+  args: ImageRequest,
+  signal: AbortSignal,
+): Promise<RawImage> {
+  const size = resolveSize(args.aspectRatio);
+  const response = await fetch(provider.generationsUrl, {
     method: "POST",
     signal,
     headers: { "content-type": "application/json", Authorization: `Bearer ${provider.key}` },
     body: JSON.stringify({
       model: provider.model,
-      messages: [{ role: "user", content }],
-      modalities: ["image", "text"],
+      prompt: composePrompt(args, size),
+      size,
+      quality: IMAGE_QUALITY,
+      n: 1,
     }),
   });
 
-  if (!response.ok) {
+  return await readImageResponse(response, provider);
+}
 
+/**
+ * Reference-driven image: OpenAI images-edits accepts the uploaded brand
+ * references as real multimodal image inputs.
+ */
+async function callOpenAiEdits(
+  provider: Provider,
+  args: ImageRequest,
+  references: ReferenceImage[],
+  signal: AbortSignal,
+): Promise<RawImage> {
+  const size = resolveSize(args.aspectRatio);
+  const form = new FormData();
+  form.append("model", provider.model);
+  form.append("prompt", composePrompt(args, size));
+  form.append("size", size);
+  form.append("quality", IMAGE_QUALITY);
+  form.append("n", "1");
+
+  // OpenAI caps how many reference files a single edit request may carry.
+  references.slice(0, 4).forEach((reference, index) => {
+    const bytes = base64ToBytes(reference.base64);
+    const type = reference.mimeType || "image/png";
+    const extension = type.includes("jpeg") || type.includes("jpg") ? "jpg" : "png";
+    form.append(
+      "image[]",
+      new Blob([bytes as unknown as BlobPart], { type }),
+      `reference-${index + 1}.${extension}`,
+    );
+  });
+
+  // Content-type is derived from FormData; setting it manually breaks the upload.
+  const response = await fetch(provider.editsUrl, {
+    method: "POST",
+    signal,
+    headers: { Authorization: `Bearer ${provider.key}` },
+    body: form,
+  });
+
+  return await readImageResponse(response, provider);
+}
+
+async function readImageResponse(response: Response, provider: Provider): Promise<RawImage> {
+  if (!response.ok) {
     const body = (await response.text()).slice(0, 800);
-    console.error(`[image] provider=lovable status=${response.status}: ${body}`);
+    console.error(`[image] provider=${provider.label} status=${response.status}: ${body}`);
+    if (/content_policy|moderation/i.test(body)) {
+      throw new ImageGenerationError(
+        "image_blocked",
+        "The image provider refused this creative brief. Edit the creative prompt and try again.",
+      );
+    }
     throw statusToError(response.status, provider.model);
   }
 
@@ -242,64 +254,39 @@ async function callLovableGateway(
     return { bytes: new Uint8Array(buffer), mimeType: contentType.split(";")[0] ?? "image/png" };
   }
 
-  const payload = (await response.json()) as Record<string, unknown>;
-  const found = await findImageInPayload(payload, signal);
-  if (!found) throw emptyResult();
-  return found;
+  const payload = (await response.json()) as {
+    data?: Array<{ b64_json?: string; url?: string }>;
+    error?: { message?: string; code?: string };
+  };
+
+  if (payload.error) {
+    const code = payload.error.code ?? "";
+    if (/content_policy|moderation/i.test(code)) {
+      throw new ImageGenerationError(
+        "image_blocked",
+        payload.error.message ??
+          "The image provider refused this creative brief. Edit the creative prompt and try again.",
+      );
+    }
+    throw new ImageGenerationError(
+      "image_failed",
+      payload.error.message ?? "Image generation failed. Please try again.",
+      true,
+    );
+  }
+
+  const entry = payload.data?.[0];
+  if (entry?.b64_json) return decodeBase64(entry.b64_json, "image/png");
+  if (entry?.url) {
+    const downloaded = await downloadImage(entry.url);
+    if (downloaded) return downloaded;
+  }
+
+  throw emptyResult();
 }
 
-/**
- * Providers describe images inconsistently (base64, data URL, remote URL,
- * nested in chat-style choices). This walks the payload and normalises
- * whatever representation it finds into raw bytes.
- */
-async function findImageInPayload(
-  value: unknown,
-  signal: AbortSignal,
-  depth = 0,
-): Promise<RawImage | null> {
-  if (depth > 6 || value == null) return null;
-
-  if (typeof value === "string") {
-    if (value.startsWith("data:image/")) {
-      const [meta, data] = value.split(",", 2);
-      if (!data) return null;
-      return decodeBase64(data, meta?.slice(5).split(";")[0] ?? "image/png");
-    }
-    if (/^https?:\/\//.test(value)) return await downloadImage(value, signal);
-    if (value.length > 512 && /^[A-Za-z0-9+/=\s]+$/.test(value)) return decodeBase64(value, "image/png");
-    return null;
-  }
-
-  if (Array.isArray(value)) {
-    for (const entry of value) {
-      const found = await findImageInPayload(entry, signal, depth + 1);
-      if (found) return found;
-    }
-    return null;
-  }
-
-  if (typeof value === "object") {
-    const record = value as Record<string, unknown>;
-    const preferred = ["b64_json", "image_base64", "base64", "data", "url", "image_url", "images", "image"];
-    for (const key of preferred) {
-      if (key in record) {
-        const found = await findImageInPayload(record[key], signal, depth + 1);
-        if (found) return found;
-      }
-    }
-    for (const [key, entry] of Object.entries(record)) {
-      if (preferred.includes(key)) continue;
-      const found = await findImageInPayload(entry, signal, depth + 1);
-      if (found) return found;
-    }
-  }
-
-  return null;
-}
-
-async function downloadImage(url: string, signal: AbortSignal): Promise<RawImage | null> {
-  const response = await fetch(url, { signal });
+async function downloadImage(url: string): Promise<RawImage | null> {
+  const response = await fetch(url);
   if (!response.ok) return null;
   const contentType = response.headers.get("content-type") ?? "image/png";
   if (!contentType.startsWith("image/")) return null;
@@ -308,12 +295,17 @@ async function downloadImage(url: string, signal: AbortSignal): Promise<RawImage
   return { bytes: new Uint8Array(buffer), mimeType: contentType.split(";")[0] ?? "image/png" };
 }
 
+function base64ToBytes(input: string): Uint8Array {
+  const clean = input.replace(/\s/g, "");
+  const binary = atob(clean);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+  return bytes;
+}
+
 function decodeBase64(input: string, mimeType: string): RawImage {
   try {
-    const clean = input.replace(/\s/g, "");
-    const binary = atob(clean);
-    const bytes = new Uint8Array(binary.length);
-    for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+    const bytes = base64ToBytes(input);
     if (bytes.byteLength < 100) throw new Error("too small");
     return { bytes, mimeType };
   } catch {
