@@ -32,6 +32,14 @@ export type CreativeDirection = {
   creativeStyleIds: string[];
   /** Optional extra art-direction notes from the agency. */
   notes: string;
+  /**
+   * The agency's answer when the client's website looks like it belongs to
+   * another brand: use that website's visual identity anyway, or ignore it.
+   * `null` means undecided — the website identity is held back until answered.
+   */
+  websiteIdentityDecision: "use" | "ignore" | null;
+  /** True once the agency has explicitly saved a visual-direction choice. */
+  confirmed: boolean;
 };
 
 export const emptyCreativeDirection: CreativeDirection = {
@@ -40,7 +48,10 @@ export const emptyCreativeDirection: CreativeDirection = {
   styleDescription: "",
   creativeStyleIds: [],
   notes: "",
+  websiteIdentityDecision: null,
+  confirmed: false,
 };
+
 
 export const VISUAL_DIRECTION_MODES: Array<{
   id: VisualDirectionMode;
