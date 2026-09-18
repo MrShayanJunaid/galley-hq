@@ -1,10 +1,9 @@
 /**
- * The four creative directions GalleyHQ produces for a content item.
+ * The four creative concepts GalleyHQ produces for a content item.
  *
- * Each is a *designed* social media creative — a complete marketing layout with
- * headline, supporting copy, CTA and brand furniture — not a bare photograph
- * with text dropped on top. The four are deliberately different compositions
- * that still read as the same brand's design system.
+ * Each is a single-idea marketing composition: one concept, one intended
+ * impact, one art direction. They are deliberately different compositions that
+ * still read as the same brand.
  */
 
 export type CreativeAssetType = "image" | "video";
@@ -14,42 +13,55 @@ export type CreativeVariant = {
   id: string;
   label: string;
   summary: string;
-  /** Layout/composition direction handed to the prompt engine. */
-  direction: string;
+  /** The single idea this creative expresses. */
+  concept: string;
+  /** The emotional / marketing effect it should have. */
+  impact: string;
+  /** Focal subject, placement, background and framing guidance. */
+  artDirection: string;
 };
 
 export const CREATIVE_VARIANTS: CreativeVariant[] = [
   {
     index: 1,
     id: "editorial_headline",
-    label: "Editorial headline layout",
-    summary: "Big typographic headline over an editorial brand image.",
-    direction:
-      "Design an editorial-poster layout: one strong photographic or illustrated brand image plus a large, confidently set headline occupying a clear typographic zone (top band, lower third or side column — whichever the reference layouts favour). Supporting line and CTA sit in a deliberate secondary hierarchy. Logo placed exactly where the references place it. Generous, intentional negative space; the type must never float randomly over the subject's face or focal point.",
+    label: "Editorial headline",
+    summary: "Type-led editorial statement over one strong brand image.",
+    concept:
+      "The message itself is the hero: one confident statement supported by a single honest brand image.",
+    impact: "Authority and confidence — the viewer trusts the brand before reading the detail.",
+    artDirection:
+      "One photographic or illustrated subject, cropped close and placed off-centre. A single clear typographic zone (top band, lower third or side column) holds the headline. Background is a calm brand-coloured field or a soft continuation of the subject. Generous margins; nothing overlapping the subject's focal point.",
   },
   {
     index: 2,
-    id: "product_ui_focus",
-    label: "Product / offer composition",
-    summary: "The product, service artefact or UI presented as the hero.",
-    direction:
-      "Design a product/offer layout: the brand's actual product, service artefact, packaging or interface is the hero, presented with the reference set's treatment (cut-out on colour block, in-context shot, device frame, floating detail callouts). Only depict a screen or interface if a reference creative or brand asset actually shows one — otherwise use the physical product, packaging, service moment or a symbolic material object instead of inventing a fake dashboard. Headline and CTA anchor around it in a clean grid. Use colour blocking or shapes drawn from the brand palette to separate the type zone from the product zone.",
+    id: "product_offer",
+    label: "Product / offer",
+    summary: "The real product, artefact or offer presented as the hero.",
+    concept: "The offer is the subject: show the actual thing being sold or delivered.",
+    impact: "Desire and clarity — the viewer immediately understands what they get.",
+    artDirection:
+      "Single hero product, packaging or service artefact, isolated on a calm brand surface with precise lighting and one soft realistic shadow. Only depict a screen or interface if a real brand asset shows one — otherwise use the physical object or a symbolic material stand-in. Headline anchors above or beside it on a clean grid; CTA sits below with clear space.",
   },
   {
     index: 3,
-    id: "problem_solution",
-    label: "Problem → solution layout",
-    summary: "Split or contrasted composition resolving a real tension.",
-    direction:
-      "Design a single-frame problem→solution composition: one deliberate split, diagonal, or foreground/background contrast that shows the tension and the brand's resolution. This is one unified designed layout with one shared type system — never two separate images pasted side by side, never a before/after collage of framed photos. Headline states the shift; CTA closes it.",
+    id: "tension_resolution",
+    label: "Tension → resolution",
+    summary: "One frame that shows the problem and the brand's answer.",
+    concept: "A single composition that holds the customer's tension and the brand's resolution.",
+    impact: "Recognition then relief — the viewer sees their problem and the way out.",
+    artDirection:
+      "One unified frame with a deliberate diagonal, foreground/background or light-to-dark contrast carrying the shift. One subject, one shared type system. Never two photos side by side and never a before/after panel. Headline states the shift; CTA closes it.",
   },
   {
     index: 4,
     id: "minimal_premium",
-    label: "Minimal premium composition",
-    summary: "Restrained, high-end brand statement.",
-    direction:
-      "Design a minimal, premium brand statement: very few elements, dominant brand colour or material field, one small focal visual, short high-impact headline, understated CTA and logo. Precision spacing, refined typographic detail, strong figure-ground contrast. Restraint is the point — no decorative clutter, no stock flourishes.",
+    label: "Minimal premium",
+    summary: "Restrained high-end brand statement.",
+    concept: "Almost nothing, perfectly placed: a premium brand statement.",
+    impact: "Prestige and calm — the restraint itself signals quality.",
+    artDirection:
+      "A dominant brand colour or material field, one small focal object or detail crop placed with intent, a short high-impact headline, an understated CTA and the logo. Precision spacing, strong figure-ground contrast, no decorative elements at all.",
   },
 ];
 
@@ -61,17 +73,3 @@ export function variantLabel(index: number | null | undefined): string {
   if (!index) return "Creative";
   return variantByIndex(index)?.label ?? `Creative ${index}`;
 }
-
-/** Global "never produce this" list applied to every generation. */
-export const GENERIC_OUTPUT_BANLIST = [
-  "generic stock-photo businessperson at a laptop",
-  "anonymous corporate office, meeting room or boardroom scene",
-  "invented SaaS dashboard, fake charts, fake statistics or fake pricing",
-  "random purple/blue gradient background, abstract gradient blobs or generic 3D shapes",
-  "collage, grid, contact sheet, mockup sheet, multiple framed images or device-mockup showcase",
-  "watermarks, provider logos, stock-site logos or any other brand's logo",
-  "gibberish, misspelled, duplicated or cut-off lettering",
-  "handshake, thumbs-up or lightbulb 'idea' cliché",
-  "text floating without a layout, centred caption plates, or a photo with a plain text box slapped on top",
-  "copying a reference image, reproducing its exact subject, or embedding a reference inside the output",
-].join("; ");

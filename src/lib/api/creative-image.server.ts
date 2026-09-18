@@ -1,44 +1,41 @@
 /**
  * Server-only creative (visual) generation for the Content Studio.
  *
- * Per creative: load the content item under the caller's RLS -> load Brand
- * Intelligence, the hand-written Visual Brand Profile, the reference-derived
- * visual design language, and the actual reference image bytes -> build a
- * structured art-direction brief for a *designed* marketing creative -> call the
- * image provider with the reference images attached as real multimodal inputs ->
- * upload to the private `creatives` bucket -> record the versioned asset row.
+ * Pipeline per creative:
+ *   load content item (caller RLS) -> load client + brand profile + measured
+ *   website identity + uploaded references -> RESOLVE all of it into one
+ *   context with explicit precedence (`@/lib/creative/brand-resolution`) ->
+ *   select only the most relevant references -> build the structured 8-section
+ *   prompt (`@/lib/creative/prompt-builder`) -> call the image provider with the
+ *   selected references plus the logo as a labelled brand asset -> upload to the
+ *   private `creatives` bucket -> record the versioned asset row.
  *
- * Each of the four creatives is its own request, so they are four independent,
- * independently versioned assets — never a collage.
+ * Each of the four creatives is its own request and its own versioned asset.
  * The provider key never leaves this module.
  */
 import { generateImage, ImageGenerationError, type ReferenceImage } from "@/lib/ai/image.server";
 import { renderBrandContext, type BrandContext } from "@/lib/brand/context";
-import {
-  renderCreativeDirection,
-  toCreativeDirection,
-  type CreativeDirection,
-} from "@/lib/brand/creative-direction";
+import { toCreativeDirection, type CreativeDirection } from "@/lib/brand/creative-direction";
 import {
   hasReferenceProfile,
-  renderReferenceProfile,
   toReferenceProfile,
   type ReferenceVisualProfile,
 } from "@/lib/brand/reference-profile";
-import {
-  renderVisualConfig,
-  toVisualConfig,
-  type BrandVisualConfig,
-} from "@/lib/brand/visual-schema";
+import { toVisualConfig, type BrandVisualConfig } from "@/lib/brand/visual-schema";
 import {
   hasWebsiteIdentity,
-  renderWebsiteIdentity,
   toWebsiteIdentity,
   type WebsiteIdentity,
 } from "@/lib/brand/website-identity";
 import {
+  resolveCreativeContext,
+  type BrandMismatch,
+  type ResolvedCreativeContext,
+} from "@/lib/creative/brand-resolution";
+import { buildCreativePrompt, type BuiltPrompt } from "@/lib/creative/prompt-builder";
+import { selectReferences, type SelectedReference } from "@/lib/creative/reference-selection";
+import {
   CREATIVE_VARIANTS,
-  GENERIC_OUTPUT_BANLIST,
   variantByIndex,
   type CreativeAssetType,
   type CreativeVariant,
@@ -53,6 +50,9 @@ import {
 
 export const CREATIVES_BUCKET = "creatives";
 export const REFERENCES_BUCKET = "brand-references";
+
+/** How many references are attached to a single request at most. */
+const MAX_ATTACHED_REFERENCES = 2;
 
 type QueryResult<T> = Promise<{ data: T; error: unknown }>;
 
@@ -118,7 +118,7 @@ export async function loadReferenceImages(args: {
     supabase: args.supabase,
     admin: args.admin,
     clientId: args.clientId,
-    limit: 4,
+    limit: 6,
   });
   return loaded.map((reference) => ({
     storagePath: reference.storagePath,
@@ -127,265 +127,97 @@ export async function loadReferenceImages(args: {
   }));
 }
 
-/** Copy that must appear on the creative, exactly as approved. */
-function copyBlock(content: {
-  title: string | null;
-  hook: string | null;
-  body: string | null;
-  cta: string | null;
-}): string {
-  const headline = (content.hook ?? content.title ?? "").trim();
-  const support = (content.body ?? "").split(/\n+/)[0]?.trim() ?? "";
-  const cta = (content.cta ?? "").trim();
-
-  return [
-    headline ? `HEADLINE (set this text verbatim, it is the largest type): "${headline}"` : "",
-    support
-      ? `SUPPORTING LINE (optional, secondary size, shorten only by trimming whole words, never reword): "${support.slice(0, 160)}"`
-      : "",
-    cta ? `CALL TO ACTION (button, pill or bar treatment, small but unmissable): "${cta}"` : "",
-    "TYPOGRAPHY ACCURACY IS CRITICAL: render every glyph correctly — proofread the rendered lettering, no misspellings, no doubled or dropped letters, no invented words, no broken hyphenation. Spell every word exactly as written. Do not translate, paraphrase, add taglines, add pricing, add statistics, add guarantees or invent any claim, feature or result.",
-    "Every piece of text must sit inside a deliberate typographic zone with real hierarchy — never floating over a focal point, never clipped by the frame edge, never overlapping another element.",
-  ]
-    .filter(Boolean)
-    .join("\n");
+/** Reference metadata only — used by the prompt preview, which loads no bytes. */
+async function loadReferenceMeta(
+  supabase: unknown,
+  clientId: string,
+): Promise<Array<{ storagePath: string; description: string | null }>> {
+  const db = supabase as SupabaseLike;
+  const { data } = await db
+    .from("brand_references")
+    .select("storage_path, description, created_at")
+    .eq("client_id", clientId)
+    .order("created_at", { ascending: true });
+  return ((data ?? []) as Array<Record<string, unknown>>).map((row) => ({
+    storagePath: String(row["storage_path"] ?? ""),
+    description: (row["description"] as string | null) ?? null,
+  }));
 }
 
-function formatLayoutGuidance(aspectRatio: string): string {
-  if (aspectRatio === "9:16") {
-    return "Vertical story frame: design for a tall 9:16 canvas. Keep the top ~12% and bottom ~15% clear of critical type (platform UI overlays there). Stack the layout vertically — visual mass in the middle, headline in the upper third, CTA in the lower third.";
-  }
-  if (aspectRatio === "4:5") {
-    return "Vertical feed frame: design natively for 4:5. Use vertical stacking with the subject occupying the lower-to-middle mass and a clear typographic band. Do not design a square and pad it.";
-  }
-  if (aspectRatio === "16:9") {
-    return "Horizontal frame: design natively for 16:9. Use a side-by-side or column layout — type zone on one side, visual mass on the other — with strong horizontal alignment.";
-  }
-  return "Square frame: design natively for 1:1 with a balanced grid — typographic zone and visual zone sharing the square deliberately (banded, split, or centred with margins).";
-}
-
-/**
- * The creative prompt engine. Combines Brand Intelligence, the written visual
- * identity, the reference-derived design language, the creative brief, the
- * approved copy and the required format into one art-direction instruction for a
- * finished, designed marketing creative.
- */
-export function composeVariantPrompt(args: {
-  creative: CreativePrompt;
-  brand: BrandContext | null;
-  visual: BrandVisualConfig;
-  /** Layers 2 + 3: chosen visual direction and creative style. */
-  direction: CreativeDirection;
-  referenceProfile: ReferenceVisualProfile;
-  /** Measured identity of the client's real website (colours, fonts, logos, shapes). */
-  websiteIdentity?: WebsiteIdentity | null;
-  /** True when the brand's real logo file is attached to this request. */
-  logoAttached?: boolean;
-  references: LoadedReference[];
+export type PreparedCreative = {
+  item: LoadedContentItem;
   variant: CreativeVariant;
-  /** Layer 4: agency refinement feedback for this regeneration. */
-  feedback?: string | null;
-  content: { title: string | null; hook: string | null; body: string | null; cta: string | null };
-  platformLabel: string;
+  brief: CreativePrompt;
+  context: ResolvedCreativeContext;
+  built: BuiltPrompt;
+  selected: SelectedReference<LoadedReference>[];
+  logo: ReferenceImage | null;
   aspectRatio: string;
-  brandName?: string | null;
-  /** Bumped on regeneration so a new version explores a new direction. */
-  version?: number;
-}): string {
-  const { creative, variant, visual } = args;
-  const brandText = args.brand ? renderBrandContext(args.brand).slice(0, 2000) : "";
-  const visualText = renderVisualConfig(visual).slice(0, 1600);
-  const directionText = renderCreativeDirection({
-    direction: args.direction,
-    referenceCount: args.references.length,
-  }).slice(0, 2000);
-  const useReferences =
-    args.references.length > 0 && args.direction.visualDirectionMode === "references";
-  const referenceText = hasReferenceProfile(args.referenceProfile)
-    ? renderReferenceProfile(args.referenceProfile).slice(0, 2600)
-    : "";
-  const identity = args.websiteIdentity ?? null;
-  const identityText =
-    identity && hasWebsiteIdentity(identity) ? renderWebsiteIdentity(identity).slice(0, 3000) : "";
-
-  const referenceLines = args.references.map((reference, index) =>
-    reference.description?.trim()
-      ? `Attached reference ${index + 1} — agency note: ${reference.description.trim()}`
-      : `Attached reference ${index + 1} — study its layout, hierarchy, type treatment and colour roles.`,
-  );
-
-  const negatives = [creative.negative_prompt?.trim(), GENERIC_OUTPUT_BANLIST]
-    .filter(Boolean)
-    .join("; ");
-
-  return [
-    "ROLE: You are the senior art director and designer at the agency that made the attached reference creatives. Design the next campaign asset in that same design system.",
-    `TASK: Produce ONE finished, social-media-ready marketing creative — a complete designed layout (image + typography + brand furniture), not a photograph with text placed on top. This is creative ${variant.index} of 4 for this post.`,
-    "It must be one single standalone composition. Never a collage, grid, mosaic, multi-frame layout, mockup sheet or device showcase.",
-    "",
-    `=== THIS CREATIVE'S DESIGN DIRECTION: ${variant.label.toUpperCase()} ===`,
-    variant.direction,
-    `Its composition must be visibly, structurally different from the other three directions (${CREATIVE_VARIANTS.filter(
-      (entry) => entry.index !== variant.index,
-    )
-      .map((entry) => entry.label)
-      .join(", ")}) — different layout skeleton, different visual subject, different type placement — while unmistakably the same brand's design system.`,
-    args.version && args.version > 1
-      ? `This is regeneration v${args.version}: keep the brand design language identical, but take a genuinely new compositional route than a first attempt would — different crop, different type placement, different visual device.`
-      : "",
-    "",
-    directionText ? `=== CREATIVE DIRECTION (agency-selected) ===\n${directionText}` : "",
-    "",
-    args.feedback?.trim()
-      ? [
-          "=== AGENCY REFINEMENT FEEDBACK (highest priority for this regeneration) ===",
-          args.feedback.trim(),
-          "Apply this feedback precisely while keeping the brand identity, the approved copy and the required format unchanged.",
-        ].join("\n")
-      : "",
-    "",
-    useReferences && referenceText
-      ? [
-          "=== REFERENCE-DERIVED VISUAL DESIGN LANGUAGE (learned from this brand's own creatives — highest authority on HOW it should look) ===",
-          referenceText,
-          "Apply these as design rules for a NEW composition. Learn the system; do not reproduce any reference.",
-        ].join("\n")
-      : "",
-    "",
-    useReferences
-      ? [
-          `=== ATTACHED REFERENCE CREATIVES (${args.references.length}) ===`,
-          "The attached images are this brand's real creatives. Study composition, layout skeleton, visual hierarchy, typography treatment, headline and CTA placement, logo placement, colour roles, background treatment, graphic shapes/overlays, photography style, spacing and text-to-visual density.",
-          "Then design something NEW for the brief below using those same principles. Do not copy a reference, do not reuse its subject or its wording, and never place a reference image inside the output.",
-          ...referenceLines,
-        ].join("\n")
-      : "No reference creatives are being used — follow the brand foundation and the creative direction above strictly, and design a deliberate, agency-quality layout rather than defaulting to stock-style imagery.",
-    "",
-    identityText
-      ? [
-          useReferences
-            ? "=== WEBSITE BRAND IDENTITY (measured from the brand's live website — authority on colours, fonts and UI shapes) ==="
-            : "=== WEBSITE BRAND IDENTITY (measured from the brand's live website — HIGHEST authority on how this creative must look) ===",
-          identityText,
-          "These values were read from the site's real stylesheets, CSS variables, font declarations and assets. Use these exact colours and these exact typefaces. Do NOT substitute similar colours, do NOT pick a different font, and do NOT invent a new palette or visual style. Any generic default look is a failure — the creative must be recognisable as coming from this website.",
-        ].join("\n")
-      : "",
-    "",
-    visualText ? `=== WRITTEN VISUAL IDENTITY (client-stated preferences) ===\n${visualText}` : "",
-    "",
-    brandText ? `=== BRAND INTELLIGENCE (voice, positioning, audience, offering) ===\n${brandText}` : "",
-    args.brandName ? `Brand name for any wordmark/logo lockup: ${args.brandName}.` : "",
-    "=== BRAND ASSETS ===",
-    args.logoAttached
-      ? "The brand's real logo file taken from its website is attached as an image input. Reproduce that exact mark — same shapes, proportions and colourway — placed with clean clear space (typically a corner or the top of the layout). Never redraw, restyle, recolour or replace it, and never add a second logo."
-      : "",
-    "If a logo or wordmark appears in the attached references, reproduce it faithfully in the placement the references use — same mark, same proportions, same colourway. Never invent a different logo, never restyle the mark, and never substitute a generic icon. If no logo is available, place a small, clean wordmark of the brand name set in the brand's own typeface instead. Keep brand colours exactly as measured.",
-    "",
-    "=== CREATIVE BRIEF FOR THIS POST ===",
-    creative.prompt?.trim() ?? "",
-    creative.subject ? `Subject: ${creative.subject}` : "",
-    creative.composition ? `Composition & framing: ${creative.composition}` : "",
-    creative.visual_style ? `Visual style: ${creative.visual_style}` : "",
-    creative.environment ? `Environment / setting: ${creative.environment}` : "",
-    creative.mood ? `Mood & lighting: ${creative.mood}` : "",
-    creative.typography ? `Typography direction: ${creative.typography}` : "",
-    creative.brand_considerations ? `Brand considerations: ${creative.brand_considerations}` : "",
-    args.content.title ? `Post concept: ${args.content.title}` : "",
-    "",
-    "=== COPY TO SET ON THE CREATIVE (approved — use verbatim) ===",
-    copyBlock(args.content),
-    "",
-    "=== FORMAT ===",
-    `Destination platform: ${args.platformLabel}.`,
-    `Aspect ratio: exactly ${args.aspectRatio}. ${formatLayoutGuidance(args.aspectRatio)}`,
-    "Compose natively for this frame with safe margins. Do not stretch, letterbox, or crop a square design into this ratio.",
-    "",
-    "=== QUALITY BAR ===",
-    "Deliberate composition, professional marketing layout, strong visual hierarchy, crisp legible typography with correct kerning, intentional CTA placement, brand-consistent colour and material language. It must be indistinguishable from work a professional design agency would deliver to this client.",
-    `Never produce: ${negatives}.`,
-  ]
-    .filter((line) => line !== "")
-    .join("\n");
-}
-
-export type CreativeAssetRecord = {
-  id: string;
-  version: number;
-  variantIndex: number;
-  variantLabel: string | null;
-  concept: string | null;
-  assetType: CreativeAssetType;
-  status: string;
-  storagePath: string | null;
-  provider: string | null;
-  model: string | null;
-  aspectRatio: string | null;
   formatId: string | null;
-  mimeType: string | null;
-  byteSize: number | null;
-  createdAt: string;
+  version: number;
 };
 
-export type GenerateCreativeResult =
-  | { ok: true; asset: CreativeAssetRecord }
-  | { ok: false; code: string; message: string; retryable: boolean; variantIndex?: number };
-
 /**
- * Generates ONE creative variant for a content item and stores it durably.
- * Versions are tracked per variant, so regenerating creative #2 never touches
- * creatives #1, #3 or #4 and never destroys earlier versions.
+ * Everything that happens before the image call: loading, resolution,
+ * reference selection and prompt composition. Shared by generation and the
+ * prompt preview so the preview shows the real prompt.
  */
-export async function generateCreativeVariant(args: {
-  /** Caller's RLS-scoped client — used for every table read/write. */
+export async function prepareCreative(args: {
   supabase: unknown;
-  /** Service-role client — used only for the private buckets. */
   admin: unknown;
-  userId: string;
   contentItemId: string;
   variantIndex: number;
   formatId?: string | null;
-  promptOverride?: string | null;
-  /** Layer 4: refinement feedback applied to this regeneration only. */
   feedback?: string | null;
-}): Promise<GenerateCreativeResult> {
+  /** The preview skips loading image bytes and the logo fetch. */
+  metadataOnly?: boolean;
+}): Promise<
+  | { ok: true; prepared: PreparedCreative }
+  | { ok: false; code: string; message: string; mismatch?: BrandMismatch }
+> {
   const db = args.supabase as SupabaseLike;
   const variant = variantByIndex(args.variantIndex) ?? CREATIVE_VARIANTS[0]!;
 
   const item = await loadContentItem(args.supabase, args.contentItemId);
   if (!item) {
-    return {
-      ok: false,
-      code: "forbidden",
-      message: "This content is not available in your workspace.",
-      retryable: false,
-      variantIndex: variant.index,
-    };
+    return { ok: false, code: "forbidden", message: "This content is not available in your workspace." };
   }
 
-  const creative = toCreativePrompt(item.creative_prompt);
-  if (!creative.prompt.trim() && !args.promptOverride?.trim()) {
+  const brief = toCreativePrompt(item.creative_prompt);
+  if (!brief.prompt.trim()) {
     return {
       ok: false,
       code: "missing_prompt",
       message: "Generate the creative direction first — the visual needs a creative brief.",
-      retryable: false,
-      variantIndex: variant.index,
     };
   }
 
-  const format =
-    creativeFormatById(args.formatId) ?? creativeFormatById(defaultFormatFor(item.platform));
-  const aspectRatio = format?.aspectRatio ?? creative.aspect_ratio ?? "1:1";
-  const platformLabel =
-    PLATFORMS.find((entry) => entry.id === item.platform)?.label ?? item.platform;
+  const format = creativeFormatById(args.formatId) ?? creativeFormatById(defaultFormatFor(item.platform));
+  const aspectRatio = format?.aspectRatio ?? brief.aspect_ratio ?? "1:1";
+  const platformLabel = PLATFORMS.find((entry) => entry.id === item.platform)?.label ?? item.platform;
 
-  // Brand + visual context sharpen the visual; a missing profile must not block generation.
+  // The client record is authoritative for the client name and the website URL —
+  // they are separate fields and the name is never taken from the website.
+  let clientName = "";
+  let clientWebsite: string | null = null;
+  try {
+    const { data } = await db
+      .from("clients")
+      .select("name, company_name, website")
+      .eq("id", item.client_id)
+      .maybeSingle();
+    const row = (data ?? {}) as Record<string, unknown>;
+    clientName = String(row["company_name"] || row["name"] || "").trim();
+    clientWebsite = (row["website"] as string | null) ?? null;
+  } catch (error) {
+    console.error("[creative] client record unavailable", error);
+  }
+
   let brand: BrandContext | null = null;
   let visual: BrandVisualConfig = toVisualConfig(null);
   let referenceProfile: ReferenceVisualProfile = toReferenceProfile(null);
   let direction: CreativeDirection = toCreativeDirection(null);
   let storedSignature: string | null = null;
-  let brandName: string | null = null;
   let websiteIdentity: WebsiteIdentity | null = null;
   try {
     const { data } = await db
@@ -401,7 +233,6 @@ export async function generateCreativeVariant(args: {
       referenceProfile = toReferenceProfile(row["reference_visual_profile"]);
       direction = toCreativeDirection(row["creative_direction"]);
       storedSignature = (row["reference_visual_signature"] as string | null) ?? null;
-      brandName = (row["brand_name"] as string | null) ?? null;
       const identity = toWebsiteIdentity(row["website_identity"]);
       websiteIdentity = hasWebsiteIdentity(identity) ? identity : null;
     }
@@ -409,35 +240,37 @@ export async function generateCreativeVariant(args: {
     console.error("[creative] brand context unavailable", error);
   }
 
-  // References are only attached when the agency's visual direction asks for them.
-  const references =
-    direction.visualDirectionMode === "references"
-      ? await loadReferenceImages({
+  if (!clientName) clientName = brand?.brandName ?? "";
+
+  // Reference bytes are only loaded when the agency's direction asks for them.
+  const wantsReferences = direction.visualDirectionMode === "references";
+  const candidates: LoadedReference[] = wantsReferences
+    ? args.metadataOnly
+      ? (await loadReferenceMeta(args.supabase, item.client_id)).map((entry) => ({
+          storagePath: entry.storagePath,
+          description: entry.description,
+          image: { base64: "", mimeType: "" },
+        }))
+      : await loadReferenceImages({
           supabase: args.supabase,
           admin: args.admin,
           clientId: item.client_id,
         })
-      : [];
+    : [];
 
-  // The brand's real logo, taken from its own website, is attached as a true
-  // multimodal input so the mark is reproduced instead of invented.
-  let brandLogo: ReferenceImage | null = null;
-  if (websiteIdentity && websiteIdentity.logos.length > 0) {
-    try {
-      const { fetchLogoAsset } = await import("@/lib/api/website-identity.server");
-      const asset = await fetchLogoAsset(websiteIdentity.logos);
-      if (asset) brandLogo = { base64: asset.base64, mimeType: asset.mimeType };
-    } catch (error) {
-      console.error("[creative] website logo unavailable", error);
-    }
-  }
+  const briefText = [brief.prompt, brief.subject, brief.composition, brief.mood, item.title ?? ""].join(" ");
+  const selected = selectReferences({
+    candidates,
+    briefText,
+    variantIndex: variant.index,
+    limit: MAX_ATTACHED_REFERENCES,
+  });
 
-  // Learn (or relearn) the reference design language before generating, so the
-  // creative is always driven by an up-to-date reading of the references.
-  if (references.length > 0) {
+  // Relearn the reference design language when the uploads changed.
+  if (!args.metadataOnly && candidates.length > 0) {
     try {
       const analysis = await import("@/lib/api/reference-analysis.server");
-      const signature = analysis.referenceSignature(references);
+      const signature = analysis.referenceSignature(candidates);
       if (!hasReferenceProfile(referenceProfile) || storedSignature !== signature) {
         const loaded = await analysis.loadClientReferences({
           supabase: args.supabase,
@@ -461,27 +294,194 @@ export async function generateCreativeVariant(args: {
     }
   }
 
-  const nextVersion = await nextVersionFor(db, item.id, variant.index);
+  // The brand's real logo travels as a brand ASSET, never as a style reference.
+  let logo: ReferenceImage | null = null;
+  const logoAvailable = Boolean(websiteIdentity && websiteIdentity.logos.length > 0);
+  if (!args.metadataOnly && logoAvailable && websiteIdentity) {
+    try {
+      const { fetchLogoAsset } = await import("@/lib/api/website-identity.server");
+      const asset = await fetchLogoAsset(websiteIdentity.logos);
+      if (asset) logo = { base64: asset.base64, mimeType: asset.mimeType };
+    } catch (error) {
+      console.error("[creative] website logo unavailable", error);
+    }
+  }
 
-  const prompt =
-    args.promptOverride?.trim() ||
-    composeVariantPrompt({
-      creative,
-      brand,
-      visual,
-      direction,
-      feedback: args.feedback ?? null,
-      referenceProfile,
-      websiteIdentity,
-      logoAttached: Boolean(brandLogo),
-      references,
+  const version = await nextVersionFor(db, item.id, variant.index);
+
+  const context = resolveCreativeContext({
+    clientName,
+    clientWebsite,
+    brand,
+    visual,
+    websiteIdentity,
+    websiteIdentityDecision: direction.websiteIdentityDecision,
+    direction,
+    directionExplicit: direction.confirmed,
+    referenceProfile,
+    selectedReferenceCount: selected.length,
+    logoAvailable: args.metadataOnly ? logoAvailable : Boolean(logo),
+    brief,
+    content: { title: item.title, hook: item.hook, body: item.body, cta: item.cta },
+    platformLabel,
+    aspectRatio,
+    feedback: args.feedback ?? null,
+    version,
+  });
+
+  // A website that looks like another brand is never merged silently.
+  if (context.mismatch && direction.websiteIdentityDecision === null) {
+    return {
+      ok: false,
+      code: "brand_mismatch",
+      message: context.mismatch.reason,
+      mismatch: context.mismatch,
+    };
+  }
+
+  const built = buildCreativePrompt({
+    context,
+    variant,
+    references: selected,
+    logoAttached: args.metadataOnly ? logoAvailable : Boolean(logo),
+  });
+
+  return {
+    ok: true,
+    prepared: {
+      item,
       variant,
-      content: { title: item.title, hook: item.hook, body: item.body, cta: item.cta },
-      platformLabel,
+      brief,
+      context,
+      built,
+      selected,
+      logo,
       aspectRatio,
-      brandName,
-      version: nextVersion,
-    });
+      formatId: format?.id ?? null,
+      version,
+    },
+  };
+}
+
+export type CreativeAssetRecord = {
+  id: string;
+  version: number;
+  variantIndex: number;
+  variantLabel: string | null;
+  concept: string | null;
+  assetType: CreativeAssetType;
+  status: string;
+  storagePath: string | null;
+  provider: string | null;
+  model: string | null;
+  aspectRatio: string | null;
+  formatId: string | null;
+  mimeType: string | null;
+  byteSize: number | null;
+  createdAt: string;
+};
+
+export type GenerateCreativeResult =
+  | { ok: true; asset: CreativeAssetRecord }
+  | {
+      ok: false;
+      code: string;
+      message: string;
+      retryable: boolean;
+      variantIndex?: number;
+      mismatch?: BrandMismatch;
+    };
+
+/** What the prompt preview returns — the real prompt plus its inputs. */
+export type CreativePromptPreview = {
+  ok: true;
+  variantIndex: number;
+  variantLabel: string;
+  aspectRatio: string;
+  prompt: string;
+  sections: BuiltPrompt["sections"];
+  sources: BuiltPrompt["sources"];
+  missing: string[];
+  attachments: string[];
+  mismatch: BrandMismatch | null;
+};
+
+export type CreativePromptPreviewResult =
+  | CreativePromptPreview
+  | { ok: false; code: string; message: string; mismatch?: BrandMismatch };
+
+/** Composes the prompt without generating anything. */
+export async function previewCreative(args: {
+  supabase: unknown;
+  admin: unknown;
+  contentItemId: string;
+  variantIndex: number;
+  formatId?: string | null;
+}): Promise<CreativePromptPreviewResult> {
+  const prepared = await prepareCreative({ ...args, metadataOnly: true });
+  if (!prepared.ok) {
+    // A mismatch must still be inspectable, so compose with the website held back.
+    if (prepared.code !== "brand_mismatch") return prepared;
+    return { ok: false, code: prepared.code, message: prepared.message, mismatch: prepared.mismatch };
+  }
+  const { prepared: ready } = prepared;
+  return {
+    ok: true,
+    variantIndex: ready.variant.index,
+    variantLabel: ready.variant.label,
+    aspectRatio: ready.aspectRatio,
+    prompt: ready.built.prompt,
+    sections: ready.built.sections,
+    sources: ready.built.sources,
+    missing: ready.built.missing,
+    attachments: ready.built.attachments,
+    mismatch: ready.context.mismatch,
+  };
+}
+
+/**
+ * Generates ONE creative variant for a content item and stores it durably.
+ * Versions are tracked per variant, so regenerating creative #2 never touches
+ * creatives #1, #3 or #4 and never destroys earlier versions.
+ */
+export async function generateCreativeVariant(args: {
+  /** Caller's RLS-scoped client — used for every table read/write. */
+  supabase: unknown;
+  /** Service-role client — used only for the private buckets. */
+  admin: unknown;
+  userId: string;
+  contentItemId: string;
+  variantIndex: number;
+  formatId?: string | null;
+  promptOverride?: string | null;
+  /** Refinement feedback applied to this regeneration only. */
+  feedback?: string | null;
+}): Promise<GenerateCreativeResult> {
+  const db = args.supabase as SupabaseLike;
+
+  const outcome = await prepareCreative({
+    supabase: args.supabase,
+    admin: args.admin,
+    contentItemId: args.contentItemId,
+    variantIndex: args.variantIndex,
+    formatId: args.formatId,
+    feedback: args.feedback,
+  });
+
+  if (!outcome.ok) {
+    return {
+      ok: false,
+      code: outcome.code,
+      message: outcome.message,
+      retryable: false,
+      variantIndex: args.variantIndex,
+      ...(outcome.mismatch ? { mismatch: outcome.mismatch } : {}),
+    };
+  }
+
+  const { item, variant, brief, built, selected, logo, aspectRatio, formatId, version } =
+    outcome.prepared;
+  const prompt = args.promptOverride?.trim() || built.prompt;
 
   const { data: created, error: insertError } = await db
     .from("content_creatives")
@@ -490,16 +490,16 @@ export async function generateCreativeVariant(args: {
       client_id: item.client_id,
       content_item_id: item.id,
       created_by: args.userId,
-      version: nextVersion,
+      version,
       variant_index: variant.index,
       variant_label: variant.label,
-      concept: variant.summary,
+      concept: variant.concept,
       asset_type: "image",
       status: "pending",
       prompt,
-      prompt_reference: creative as unknown as Record<string, unknown>,
-      reference_paths: references.map((reference) => reference.storagePath),
-      format_id: format?.id ?? null,
+      prompt_reference: brief as unknown as Record<string, unknown>,
+      reference_paths: selected.map((entry) => entry.candidate.storagePath),
+      format_id: formatId,
       aspect_ratio: aspectRatio,
       storage_bucket: CREATIVES_BUCKET,
     })
@@ -523,11 +523,13 @@ export async function generateCreativeVariant(args: {
   try {
     const image = await generateImage({
       prompt,
-      negativePrompt: creative.negative_prompt,
+      negativePrompt: brief.negative_prompt,
       aspectRatio,
+      // Selected style references first, then the logo as the final asset input —
+      // the prompt tells the model the last image is the logo, not a style cue.
       referenceImages: [
-        ...references.map((reference) => reference.image),
-        ...(brandLogo ? [brandLogo] : []),
+        ...selected.map((entry) => entry.candidate.image),
+        ...(logo ? [logo] : []),
       ],
     });
 
@@ -538,6 +540,7 @@ export async function generateCreativeVariant(args: {
         : "png";
     const storagePath = `${item.workspace_id}/${item.client_id}/${item.id}/${assetId}.${extension}`;
 
+    // The original generated bytes are stored as-is — never a derivative.
     const upload = await (args.admin as SupabaseLike).storage
       .from(CREATIVES_BUCKET)
       .upload(storagePath, image.bytes, { contentType: image.mimeType, upsert: true });
@@ -608,7 +611,6 @@ export async function generateCreativeVariant(args: {
     return { ok: false, code, message, retryable, variantIndex: variant.index };
   }
 }
-
 
 async function nextVersionFor(
   db: SupabaseLike,

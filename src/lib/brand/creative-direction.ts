@@ -32,6 +32,14 @@ export type CreativeDirection = {
   creativeStyleIds: string[];
   /** Optional extra art-direction notes from the agency. */
   notes: string;
+  /**
+   * The agency's answer when the client's website looks like it belongs to
+   * another brand: use that website's visual identity anyway, or ignore it.
+   * `null` means undecided — the website identity is held back until answered.
+   */
+  websiteIdentityDecision: "use" | "ignore" | null;
+  /** True once the agency has explicitly saved a visual-direction choice. */
+  confirmed: boolean;
 };
 
 export const emptyCreativeDirection: CreativeDirection = {
@@ -40,7 +48,10 @@ export const emptyCreativeDirection: CreativeDirection = {
   styleDescription: "",
   creativeStyleIds: [],
   notes: "",
+  websiteIdentityDecision: null,
+  confirmed: false,
 };
+
 
 export const VISUAL_DIRECTION_MODES: Array<{
   id: VisualDirectionMode;
@@ -218,17 +229,25 @@ export function toCreativeDirection(value: unknown): CreativeDirection {
           .filter((entry) => entry.length > 0 && (!allowed || allowed(entry)))
       : [];
 
+  const decision = raw["websiteIdentityDecision"];
+  const storedMode = VISUAL_DIRECTION_MODES.some((entry) => entry.id === mode)
+    ? (mode as VisualDirectionMode)
+    : null;
+
   return {
-    visualDirectionMode: VISUAL_DIRECTION_MODES.some((entry) => entry.id === mode)
-      ? (mode as VisualDirectionMode)
-      : "references",
+    // No stored choice means the agency never picked: fall back to the brand's
+    // own identity rather than silently pulling in uploaded references.
+    visualDirectionMode: storedMode ?? "brand_only",
     stylePresetIds: strings(raw["stylePresetIds"], (id) => Boolean(visualStylePresetById(id))),
     styleDescription:
       typeof raw["styleDescription"] === "string" ? raw["styleDescription"].trim().slice(0, 2000) : "",
     creativeStyleIds: strings(raw["creativeStyleIds"], (id) => Boolean(creativeStyleById(id))),
     notes: typeof raw["notes"] === "string" ? raw["notes"].trim().slice(0, 2000) : "",
+    websiteIdentityDecision: decision === "use" || decision === "ignore" ? decision : null,
+    confirmed: storedMode !== null,
   };
 }
+
 
 /** True once the agency has made a deliberate visual-direction choice. */
 export function isDirectionConfigured(
