@@ -222,7 +222,7 @@ export function resolveCreativeContext(input: {
     pushColor("text", site.colors.text);
   }
   if (colors.length === 0) {
-    const written = clean(input.visual.color_palette ?? "", 300);
+    const written = clean(input.visual.color_direction ?? "", 300);
     if (written) colors.push({ role: "stated palette", value: written });
     else missing.push("brand colours");
   }
@@ -234,7 +234,7 @@ export function resolveCreativeContext(input: {
     }
   }
   if (fonts.length === 0) {
-    const written = clean(input.visual.typography ?? "", 200);
+    const written = clean(input.visual.typography_direction ?? "", 200);
     if (written) fonts.push({ role: "stated", family: written, weights: [] });
     else missing.push("brand typefaces");
   }
